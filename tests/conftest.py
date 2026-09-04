@@ -165,6 +165,78 @@ def razorpay_failed_payment_payload():
 
 
 @pytest.fixture
+def make_merchant(db_session):
+    """
+    Returns a factory that get-or-creates a MerchantSettings row.
+    Phase 3 tests need one to exist before a Payment can reference it
+    (Payment.merchant_id is a real FK) — mirrors what
+    PaymentService.ensure_default_merchant() does at ingestion time,
+    but explicit here so tests can control policy values (e.g. a low
+    high_risk_amount_threshold) directly.
+    """
+    from app.models.merchant_settings import MerchantSettings
+    from app.repositories.merchant_settings_repository import MerchantSettingsRepository
+
+    def _make(merchant_id: str = "test_merchant", **overrides) -> MerchantSettings:
+        repo = MerchantSettingsRepository(db_session)
+        existing = repo.get_by_merchant_id(merchant_id)
+        if existing:
+            return existing
+        return repo.add(MerchantSettings(merchant_id=merchant_id, **overrides))
+
+    return _make
+
+
+@pytest.fixture
+def make_customer(db_session):
+    """Returns a factory that creates a Customer row."""
+    from app.models.customer import Customer
+    from app.repositories.customer_repository import CustomerRepository
+
+    def _make(**overrides) -> Customer:
+        defaults = {"name": "Test Customer", "email": "test.customer@example.com"}
+        defaults.update(overrides)
+        return CustomerRepository(db_session).add(Customer(**defaults))
+
+    return _make
+
+
+@pytest.fixture
+def make_payment(db_session, make_merchant):
+    """
+    Returns a factory that creates a Payment row, auto-provisioning its
+    merchant if not given one. Defaults to a "failed" payment with a
+    realistic failure_code/failure_message, since that's the state
+    Phase 3's diagnosis pipeline is built around.
+    """
+    import uuid
+    from decimal import Decimal
+
+    from app.models.payment import Payment
+    from app.repositories.payment_repository import PaymentRepository
+
+    def _make(**overrides) -> Payment:
+        merchant_id = overrides.pop("merchant_id", None)
+        if merchant_id is None:
+            merchant_id = make_merchant().merchant_id
+
+        defaults = {
+            "merchant_id": merchant_id,
+            "gateway": "mock",
+            "gateway_payment_id": f"pay_test_{uuid.uuid4().hex[:12]}",
+            "amount": Decimal("999.00"),
+            "currency": "INR",
+            "status": "failed",
+            "failure_code": "BAD_REQUEST_ERROR",
+            "failure_message": "Insufficient funds in the customer's account",
+        }
+        defaults.update(overrides)
+        return PaymentRepository(db_session).add(Payment(**defaults))
+
+    return _make
+
+
+@pytest.fixture
 def event_id_header():
     """
     Returns a helper that builds the x-razorpay-event-id header. A separate
