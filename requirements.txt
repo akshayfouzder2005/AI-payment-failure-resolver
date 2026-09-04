@@ -7,6 +7,11 @@ pydantic==2.10.4
 pydantic-settings==2.7.1
 python-dotenv==1.0.1
 
+# --- Phase 3: AI decision service ---
+# Only required if AI_PROVIDER=anthropic; the default "mock" provider
+# needs no external SDK at all.
+anthropic>=1.0.0,<2.0.0
+
 # testing
 pytest==8.3.4
 httpx==0.28.1

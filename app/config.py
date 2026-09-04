@@ -40,6 +40,23 @@ class Settings(BaseSettings):
     # default policy values on first use if it doesn't exist yet.
     default_merchant_id: str = "default_merchant"
 
+    # --- Phase 3: AI decision service ---
+    # "mock" needs zero credentials and runs the full pipeline with a
+    # deterministic, rule-based stand-in — the default so the app is
+    # demoable before an API key exists. Switch to "anthropic" once
+    # ANTHROPIC_API_KEY is set.
+    ai_provider: str = "mock"
+    anthropic_api_key: str = ""
+    # Any current Claude model that supports Structured Outputs
+    # (output_config.format) works here; Sonnet is the balanced default
+    # for a classification+reasoning task like this one.
+    ai_model_name: str = "claude-sonnet-5"
+    ai_request_timeout_seconds: float = 20.0
+    # Below this, AIDecisionService discards the LLM's recommendation and
+    # persists a deterministic fallback decision instead — see
+    # ai_decision_service.py.
+    ai_min_confidence_threshold: float = 0.4
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
