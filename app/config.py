@@ -1,0 +1,55 @@
+"""
+Centralized application configuration.
+
+All configuration is read from environment variables (optionally loaded from
+a local .env file for development). Nothing here should ever be hardcoded
+with real secrets. This module is imported everywhere config is needed so
+there is a single source of truth for settings.
+"""
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    app_name: str = "ai-revenue-recovery-agent"
+    env: str = "local"
+    log_level: str = "INFO"
+
+    database_url: str
+    test_database_url: str | None = None
+
+    cors_origins: str = "http://localhost:5173"
+
+    # --- Phase 2: webhook ingestion ---
+    # Empty by default so the app boots without it; RazorpayAdapter treats a
+    # missing/empty secret as "cannot validate" and rejects every signature
+    # rather than silently accepting unsigned requests. Real value comes
+    # from the webhook's config in the Razorpay Dashboard.
+    razorpay_webhook_secret: str = ""
+
+    # The MVP is single-merchant (see MerchantSettings docstring). Webhooks
+    # don't carry our internal merchant_id, so ingestion resolves every
+    # payment to this one, auto-provisioning a MerchantSettings row with
+    # default policy values on first use if it doesn't exist yet.
+    default_merchant_id: str = "default_merchant"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """
+    Settings are cached so we parse the environment once per process.
+    Tests that need different settings should override via environment
+    variables before this is first called, or use dependency overrides.
+    """
+    return Settings()
