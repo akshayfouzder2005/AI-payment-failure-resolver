@@ -12,6 +12,11 @@ python-dotenv==1.0.1
 # needs no external SDK at all.
 anthropic>=1.0.0,<2.0.0
 
+# --- Phase 5: recovery action execution ---
+# httpx is also what RazorpayGatewayClient uses for outbound API calls
+# (RECOVERY_GATEWAY_PROVIDER=razorpay) — no separate Razorpay SDK needed
+# since the client only calls one documented REST endpoint.
+
 # testing
 pytest==8.3.4
 httpx==0.28.1
