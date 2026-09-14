@@ -237,6 +237,36 @@ def make_payment(db_session, make_merchant):
 
 
 @pytest.fixture
+def make_ai_decision(db_session):
+    """
+    Returns a factory that creates an AIDecision row directly (bypassing
+    AIDecisionService/the LLM entirely), for Phase 5 tests that need a
+    decision to exist without exercising Phase 3's diagnosis pipeline.
+    Defaults to a RETRY_PAYMENT recommendation with confidence high
+    enough to clear AI_MIN_CONFIDENCE_THRESHOLD.
+    """
+    from app.models.ai_decision import AIDecision
+    from app.repositories.ai_decision_repository import AIDecisionRepository
+
+    def _make(payment_id, **overrides) -> AIDecision:
+        defaults = {
+            "payment_id": payment_id,
+            "model_name": "test-fixture",
+            "failure_category": "INSUFFICIENT_FUNDS",
+            "root_cause": "Card had insufficient funds at the time of the charge.",
+            "recovery_probability": 0.7,
+            "recommended_action": "RETRY_PAYMENT",
+            "confidence": 0.9,
+            "reason": "Insufficient funds failures often succeed on a later retry.",
+            "risk_factors": [],
+        }
+        defaults.update(overrides)
+        return AIDecisionRepository(db_session).add(AIDecision(**defaults))
+
+    return _make
+
+
+@pytest.fixture
 def event_id_header():
     """
     Returns a helper that builds the x-razorpay-event-id header. A separate

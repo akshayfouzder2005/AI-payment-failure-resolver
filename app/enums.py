@@ -51,3 +51,25 @@ class FailureCategory(str, Enum):
     FRAUD_SUSPECTED = "FRAUD_SUSPECTED"
     CUSTOMER_ABANDONED = "CUSTOMER_ABANDONED"
     UNKNOWN = "UNKNOWN"
+
+
+class RecoveryAttemptStatus(str, Enum):
+    """
+    Execution-outcome states for a RecoveryAttempt row (Phase 5).
+
+    Deliberately separate from PolicyDecisionType (app/schemas/policy.py):
+    - policy_decision records the engine's VERDICT (approve/modify/reject/
+      escalate) about the AI's recommendation.
+    - status (this enum) records what actually happened when the resulting
+      final_action was handed to an executor.
+    A REJECT verdict and a SUCCESS status can coexist on the same row (e.g.
+    the engine rejects RETRY_PAYMENT and substitutes ESCALATE_TO_MERCHANT,
+    which then executes successfully) — the two fields answer different
+    questions and neither is derivable from the other.
+    """
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    SUCCESS = "success"
+    FAILED = "failed"
+    SKIPPED = "skipped"

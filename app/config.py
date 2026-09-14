@@ -57,6 +57,32 @@ class Settings(BaseSettings):
     # ai_decision_service.py.
     ai_min_confidence_threshold: float = 0.4
 
+    # --- Phase 5: recovery action execution ---
+    # "mock" needs zero credentials and simulates every provider call
+    # deterministically — the default so the full recovery flow is
+    # demoable without a Razorpay account. Switch to "razorpay" once
+    # RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET are set.
+    recovery_gateway_provider: str = "mock"
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+    # Outbound retry-payment/create-payment-link calls use these — kept
+    # separate from razorpay_webhook_secret (Phase 2), which is only ever
+    # used to verify *inbound* webhook signatures and has no bearing on
+    # outbound API auth.
+    razorpay_api_timeout_seconds: float = 15.0
+
+    # Only "mock" exists for Phase 5: it logs the notification and
+    # returns success, which is enough to demonstrate SEND_NOTIFICATION /
+    # ESCALATE_TO_MERCHANT end-to-end. Wiring a real channel (e.g. an
+    # email or SMS provider) is a real integration with its own
+    # documented API and is out of scope until one is actually needed.
+    notification_provider: str = "mock"
+    # Single-tenant MVP (see MerchantSettings docstring) — there is no
+    # per-merchant contact column, so ESCALATE_TO_MERCHANT notifies this
+    # one operational address rather than a speculative DB column no
+    # other feature would use yet.
+    merchant_escalation_email: str = "ops@merchant.example"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

@@ -42,3 +42,32 @@ class LLMProviderError(DomainError):
     LLMProvider.generate_decision()'s raw_output separately (see
     AIDecisionService), not a provider failure.
     """
+
+
+class AIDecisionNotFoundError(DomainError):
+    """
+    No AIDecision exists yet for a payment that recovery execution was
+    requested for (Phase 5). Treated as a 409 by the route, not a 404:
+    the payment itself is real, there's just nothing to act on until
+    POST /ai-decisions/diagnose/{payment_id} runs first.
+    """
+
+
+class PaymentGatewayError(DomainError):
+    """
+    A PaymentGatewayClient implementation (Phase 5) failed to complete a
+    retry-payment or create-payment-link call — network failure, auth/
+    config error, or a non-2xx response from the gateway. Caught by the
+    executor that called it and turned into a failed ExecutionOutcome
+    rather than propagating, so one bad provider call never crashes the
+    whole recovery-execution request.
+    """
+
+
+class NotificationError(DomainError):
+    """
+    A NotificationProvider implementation (Phase 5) failed to send a
+    customer or merchant notification. Same handling as
+    PaymentGatewayError: caught by the executor, turned into a failed
+    ExecutionOutcome.
+    """
