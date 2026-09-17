@@ -73,3 +73,41 @@ class RecoveryAttemptStatus(str, Enum):
     SUCCESS = "success"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+
+class AuditAction(str, Enum):
+    """
+    Canonical audit_logs.action values — Phase 6.
+
+    AuditLog.action stays a plain String column (see app/models/base.py's
+    docstring on why domain values aren't native Postgres enums here); this
+    enum is an application-layer contract, not a DB constraint, so a typo'd
+    action string fails at usage time rather than becoming a silent new
+    event type no dashboard filter or test knows about.
+
+    This is deliberately NOT a full inventory of every action string this
+    codebase writes. Several of the eleven state transitions the Phase 6
+    brief calls out were already unambiguously covered by an earlier
+    phase's audit call and are listed here only in comment form so the
+    mapping is visible in one place:
+
+        payment failed        -> "payment_failed_recorded"      (Phase 2)
+        AI analysis completed  -> "ai_decision_created" /
+                                   "ai_decision_fallback_used"   (Phase 3)
+        policy evaluated        -> "policy_decision_recorded"    (Phase 5)
+
+    Duplicating those under a second name would double-write a row for the
+    exact same instant for no reconstruction benefit. The members below are
+    the ones that did NOT already exist as an unambiguous, independently
+    filterable action name, added alongside (never replacing) the
+    pre-existing calls so every earlier phase's tests keep passing unmodified.
+    """
+
+    WEBHOOK_RECEIVED = "webhook_received"
+    AI_ANALYSIS_STARTED = "ai_analysis_started"
+    ACTION_APPROVED = "action_approved"
+    ACTION_REJECTED = "action_rejected"
+    ACTION_EXECUTED = "action_executed"
+    ACTION_FAILED = "action_failed"
+    PAYMENT_RECOVERED = "payment_recovered"
+    ESCALATION_CREATED = "escalation_created"

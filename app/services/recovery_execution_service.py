@@ -29,7 +29,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.enums import RecoveryActionType, RecoveryAttemptStatus
+from app.enums import AuditAction, RecoveryActionType, RecoveryAttemptStatus
 from app.exceptions import AIDecisionNotFoundError, PaymentNotFoundError
 from app.executors.base import ExecutionContext, ExecutionOutcome
 from app.executors.factory import get_executor
@@ -38,6 +38,7 @@ from app.models.audit_log import AuditLog
 from app.models.payment import Payment
 from app.models.recovery_attempt import RecoveryAttempt
 from app.policy_engine import PolicyEngine
+from app.schemas.policy import PolicyDecisionType
 from app.repositories.ai_decision_repository import AIDecisionRepository
 from app.repositories.audit_log_repository import AuditLogRepository
 from app.repositories.customer_repository import CustomerRepository
@@ -125,6 +126,25 @@ class RecoveryExecutionService:
             f"recommendation; final_action={decision.final_action.value}.",
             violated_rules=decision.violated_rules,
         )
+        # Phase 6: a second, narrowly-named entry alongside the one above —
+        # independently filterable ("show me every rejection") without
+        # parsing the human-readable message. APPROVE is the only verdict
+        # where the AI's own recommendation reaches an executor unchanged;
+        # MODIFY/REJECT/ESCALATE all mean *something* about that
+        # recommendation was overridden, so they share "action_rejected"
+        # rather than getting three further-split event names the brief
+        # didn't ask for.
+        self._audit(
+            "RecoveryAttempt",
+            attempt.id,
+            AuditAction.ACTION_APPROVED.value
+            if decision.decision == PolicyDecisionType.APPROVE
+            else AuditAction.ACTION_REJECTED.value,
+            f"Policy verdict {decision.decision.value} for AI recommendation "
+            f"'{decision.ai_recommended_action}' -> final_action={decision.final_action.value}.",
+            actor="policy_engine",
+            policy_decision=decision.decision.value,
+        )
         self.db.commit()
 
         context = self._build_execution_context(payment, ai_decision, attempt, decision.final_action, decision.reason)
@@ -156,6 +176,30 @@ class RecoveryExecutionService:
             provider_reference=outcome.provider_reference or "",
             error=outcome.error or "",
         )
+        # Phase 6: SUCCESS/FAILED get their own narrowly-named event so a
+        # dashboard can filter "show me every failed intervention" without
+        # parsing outcome.status out of the message above. SKIPPED (the
+        # NO_ACTION executor's deliberate no-op) gets neither — it's
+        # accurately neither an execution nor a failure, and the brief's
+        # eleven events don't call for a third name here.
+        if outcome.status == RecoveryAttemptStatus.SUCCESS:
+            self._audit(
+                "RecoveryAttempt",
+                attempt.id,
+                AuditAction.ACTION_EXECUTED.value,
+                f"{decision.final_action.value} executed successfully.",
+                actor="executor",
+                provider_reference=outcome.provider_reference or "",
+            )
+        elif outcome.status == RecoveryAttemptStatus.FAILED:
+            self._audit(
+                "RecoveryAttempt",
+                attempt.id,
+                AuditAction.ACTION_FAILED.value,
+                f"{decision.final_action.value} failed: {outcome.error or 'no error detail provided'}.",
+                actor="executor",
+                error=outcome.error or "",
+            )
 
         self._apply_payment_status_transition(payment, decision.final_action, outcome)
 
@@ -250,14 +294,32 @@ class RecoveryExecutionService:
             f"Payment status changed from '{previous_status}' to '{new_status}' "
             f"following a successful {final_action.value}.",
         )
+        # Phase 6: narrowly-named events for the two outcomes that most
+        # directly answer "did we get the money back / does a human need
+        # to act" — the two required events this generic transition log
+        # doesn't already name on its own. "retry_scheduled" (a successful
+        # SEND_PAYMENT_LINK) gets no equivalent third event; it isn't a
+        # resolution yet, just a link now waiting on the customer.
+        if new_status == "recovered":
+            self._audit(
+                "Payment", payment.id, AuditAction.PAYMENT_RECOVERED.value,
+                f"Payment recovered via {final_action.value}.",
+            )
+        elif new_status == "escalated":
+            self._audit(
+                "Payment", payment.id, AuditAction.ESCALATION_CREATED.value,
+                f"Payment escalated to merchant via {final_action.value}.",
+            )
 
-    def _audit(self, entity_type: str, entity_id: UUID, action: str, message: str, **extra) -> None:
+    def _audit(
+        self, entity_type: str, entity_id: UUID, action: str, message: str, actor: str = "system", **extra
+    ) -> None:
         self.audit_repo.add(
             AuditLog(
                 entity_type=entity_type,
                 entity_id=entity_id,
                 action=action,
-                actor="system",
+                actor=actor,
                 details={"message": message, **extra},
             )
         )
