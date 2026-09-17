@@ -40,7 +40,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.enums import FailureCategory, RecoveryActionType
+from app.enums import AuditAction, FailureCategory, RecoveryActionType
 from app.exceptions import LLMProviderError
 from app.integrations.llm_provider.base import LLMProvider
 from app.integrations.llm_provider.factory import get_llm_provider
@@ -69,6 +69,24 @@ class AIDecisionService:
         # fallback AIDecision to, so this isn't a case the fallback path
         # can paper over (see PaymentNotFoundError's docstring).
         context = self.context_builder.build(payment_id)
+
+        # Phase 6: fired once we know the payment genuinely exists (a
+        # PaymentNotFoundError above means there's nothing to attach this
+        # to), before the LLM call or the fallback short-circuit below —
+        # so "analysis started" is true even for a run that ends up using
+        # the deterministic fallback rather than calling the model.
+        self.audit_repo.add(
+            AuditLog(
+                entity_type="Payment",
+                entity_id=payment_id,
+                action=AuditAction.AI_ANALYSIS_STARTED.value,
+                actor="ai_engine",
+                details={
+                    "has_failure_context": context.payment.failure_code is not None
+                    or context.payment.failure_message is not None,
+                },
+            )
+        )
 
         if context.payment.failure_code is None and context.payment.failure_message is None:
             return self._persist_fallback(

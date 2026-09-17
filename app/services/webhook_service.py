@@ -21,6 +21,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.enums import AuditAction
 from app.exceptions import InvalidPayloadError, InvalidSignatureError
 from app.integrations.payment_provider.base import PaymentProviderAdapter
 from app.models.audit_log import AuditLog
@@ -67,6 +68,22 @@ class WebhookService:
         # Commit as its own step: the event is now durably stored ("we saw
         # this") independent of whatever happens in processing below.
         self.db.commit()
+
+        if created:
+            # Phase 6: distinct from "payment_failed_recorded" below — this
+            # fires for every genuinely new delivery regardless of event
+            # type or how processing goes, so "we received a webhook" is
+            # reconstructable even for event types Phase 2 doesn't act on.
+            # Deliberately NOT fired on the `not created` (duplicate)
+            # branch, which already gets its own "webhook_duplicate_ignored"
+            # entry — see below.
+            self._audit(
+                "PaymentEvent",
+                stored_event.id,
+                AuditAction.WEBHOOK_RECEIVED.value,
+                f"Received {stored_event.provider}:{stored_event.event_id} ({normalized.event_type})",
+            )
+            self.db.commit()
 
         if not created:
             if stored_event.processing_status in ("processed", "ignored"):

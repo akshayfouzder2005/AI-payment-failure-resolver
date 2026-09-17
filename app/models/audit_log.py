@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import JSON, DateTime, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -23,6 +23,17 @@ class AuditLog(Base, UUIDPrimaryKeyMixin):
     This is a deliberate, common tradeoff: we lose DB-level referential
     integrity on this table in exchange for one simple, queryable log
     instead of N audit tables.
+
+    `created_at` is given an explicit Python-side `default` (Phase 6), not
+    just the `server_default=func.now()` every other timestamped model
+    uses. Postgres's `now()` returns the SAME value for every statement
+    inside one transaction — several service methods add more than one
+    AuditLog row before their single `commit()`, which would otherwise
+    make those rows indistinguishable in time and defeat chronological
+    reconstruction (the whole point of this table). A callable `default`
+    is evaluated per-row at flush time, so ordering reflects real call
+    order even within one transaction. `server_default` is left in place
+    too, as a DB-level fallback for any row ever inserted outside the ORM.
     """
 
     __tablename__ = "audit_logs"
@@ -40,5 +51,8 @@ class AuditLog(Base, UUIDPrimaryKeyMixin):
     details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+        nullable=False,
     )

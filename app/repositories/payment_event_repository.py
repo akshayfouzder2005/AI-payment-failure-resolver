@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -14,6 +16,20 @@ class PaymentEventRepository(BaseRepository[PaymentEvent]):
             PaymentEvent.event_id == event_id,
         )
         return self.db.scalars(stmt).first()
+
+    def list_for_payment(self, payment_id: uuid.UUID) -> list[PaymentEvent]:
+        """
+        Phase 6: AuditService uses this to gather every PaymentEvent
+        linked to a payment so a full cross-entity audit timeline can be
+        assembled. Oldest first, matching every other list_for_payment's
+        convention across the repository layer.
+        """
+        stmt = (
+            select(PaymentEvent)
+            .where(PaymentEvent.payment_id == payment_id)
+            .order_by(PaymentEvent.created_at.asc())
+        )
+        return list(self.db.scalars(stmt).all())
 
     def add_idempotent(self, event: PaymentEvent) -> tuple[PaymentEvent, bool]:
         """

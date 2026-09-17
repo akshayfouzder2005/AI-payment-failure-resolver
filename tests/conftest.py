@@ -14,7 +14,30 @@ accidentally wipe a dev/prod database.
 Isolation: each test runs inside a transaction that is rolled back at the
 end, so tests never see each other's data and never need manual cleanup.
 This is the standard SQLAlchemy "join an external transaction" pattern.
+
+Provider isolation (Phase 6 hardening): the payment gateway / notification
+/ AI providers are forced to "mock" here, in process environment, before
+anything under app/ is ever imported. Without this, whatever backend/.env
+has configured locally (e.g. RECOVERY_GATEWAY_PROVIDER=razorpay for manual
+live testing via scripts/verify_razorpay_live.py) leaks straight into the
+test suite: RecoveryExecutionService tests that don't inject a fake
+executor_factory would then make REAL calls to Razorpay's API with
+synthetic fixture data (fake emails/phones), which the real API can
+legitimately reject — producing exactly the "status=failed instead of
+success" failures this looks like from the outside. Per this project's
+own convention, live-provider verification belongs in a standalone script
+outside pytest (see scripts/verify_razorpay_live.py's docstring), never in
+the automated suite, so this override is not optional/overridable per-test.
+Must happen before the first `from app...` import below: app.database
+constructs (and lru_cache's) Settings the moment it is first imported, so
+setting these after that point would already be too late.
 """
+import os
+
+os.environ["RECOVERY_GATEWAY_PROVIDER"] = "mock"
+os.environ["NOTIFICATION_PROVIDER"] = "mock"
+os.environ["AI_PROVIDER"] = "mock"
+
 import hashlib
 import hmac
 import json
@@ -262,6 +285,33 @@ def make_ai_decision(db_session):
         }
         defaults.update(overrides)
         return AIDecisionRepository(db_session).add(AIDecision(**defaults))
+
+    return _make
+
+
+@pytest.fixture
+def make_recovery_attempt(db_session):
+    """
+    Returns a factory that creates a RecoveryAttempt row directly
+    (bypassing RecoveryExecutionService/executors entirely), for Phase 6
+    metrics/audit tests that need attempts with specific status/
+    action_type/timing combinations without exercising the full
+    execution pipeline. Defaults to a successful RETRY_PAYMENT attempt.
+    """
+    from app.models.recovery_attempt import RecoveryAttempt
+    from app.repositories.recovery_attempt_repository import RecoveryAttemptRepository
+
+    def _make(payment_id, **overrides) -> RecoveryAttempt:
+        defaults = {
+            "payment_id": payment_id,
+            "action_type": "RETRY_PAYMENT",
+            "attempt_number": 1,
+            "status": "success",
+            "policy_decision": "APPROVE",
+            "policy_reason": "Test fixture default.",
+        }
+        defaults.update(overrides)
+        return RecoveryAttemptRepository(db_session).add(RecoveryAttempt(**defaults))
 
     return _make
 
