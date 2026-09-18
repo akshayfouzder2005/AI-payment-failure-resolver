@@ -21,7 +21,9 @@ class PaymentLinkExecutor(RecoveryActionExecutor):
             customer_name=context.customer_name,
             customer_email=context.customer_email,
             customer_phone=context.customer_phone,
-            reference=f"plink-{context.recovery_attempt_id}",
+            # .hex, not str(uuid) — see retry_payment_executor.py's comment;
+            # same Razorpay endpoint, same 40-char reference_id cap.
+            reference=f"plink-{context.recovery_attempt_id.hex}",
         )
         try:
             result = self.gateway_client.create_payment_link(request)

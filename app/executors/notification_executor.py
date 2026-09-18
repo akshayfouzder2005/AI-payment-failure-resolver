@@ -35,7 +35,12 @@ class NotificationExecutor(RecoveryActionExecutor):
                 f"Hi, your payment of {context.payment_amount} {context.currency} "
                 f"({context.gateway_payment_id}) needs attention. {context.policy_reason}"
             ),
-            reference=f"notify-{context.recovery_attempt_id}",
+            # .hex, not str(uuid) — consistent with the two Razorpay-bound
+            # executors (see retry_payment_executor.py). MockNotificationProvider
+            # ignores this value today, but keeping the same safe pattern here
+            # avoids reintroducing the same length trap if a real provider
+            # (most SMS/email vendors cap client reference IDs too) replaces it.
+            reference=f"notify-{context.recovery_attempt_id.hex}",
         )
         try:
             result = self.notification_provider.send(request)
