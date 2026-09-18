@@ -8,9 +8,10 @@ pydantic-settings==2.7.1
 python-dotenv==1.0.1
 
 # --- Phase 3: AI decision service ---
-# Only required if AI_PROVIDER=anthropic; the default "mock" provider
-# needs no external SDK at all.
-anthropic>=1.0.0,<2.0.0
+# Only required if AI_PROVIDER=anthropic or AI_PROVIDER=groq
+# respectively; the default "mock" provider needs no external SDK at all.
+
+groq>=1.0.0,<2.0.0
 
 # --- Phase 5: recovery action execution ---
 # httpx is also what RazorpayGatewayClient uses for outbound API calls

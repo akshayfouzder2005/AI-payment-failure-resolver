@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     # "mock" needs zero credentials and runs the full pipeline with a
     # deterministic, rule-based stand-in — the default so the app is
     # demoable before an API key exists. Switch to "anthropic" once
-    # ANTHROPIC_API_KEY is set.
+    # ANTHROPIC_API_KEY is set, or "groq" once GROQ_API_KEY is set.
     ai_provider: str = "mock"
     anthropic_api_key: str = ""
     # Any current Claude model that supports Structured Outputs
@@ -56,6 +56,22 @@ class Settings(BaseSettings):
     # persists a deterministic fallback decision instead — see
     # ai_decision_service.py.
     ai_min_confidence_threshold: float = 0.4
+
+    # Groq-specific: kept as its own key/model pair (not folded into
+    # anthropic_api_key/ai_model_name above) so switching AI_PROVIDER
+    # between "anthropic" and "groq" never means one provider's default
+    # model name silently applies to the other.
+    groq_api_key: str = ""
+    # One of only three models Groq currently supports strict-mode
+    # (constrained-decoding) Structured Outputs on — see
+    # groq_provider.py's docstring.
+    groq_model_name: str = "openai/gpt-oss-20b"
+    # Bounded retries for TRANSIENT Groq failures only (timeouts,
+    # connection errors, 429s, 5xxs) — handled by the groq SDK's own
+    # built-in retry logic, not a hand-rolled loop. Does not retry 400s
+    # (schema-validation failures), matching "don't retry validation
+    # failures indefinitely."
+    groq_max_retries: int = 2
 
     # --- Phase 5: recovery action execution ---
     # "mock" needs zero credentials and simulates every provider call

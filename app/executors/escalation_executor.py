@@ -36,7 +36,10 @@ class EscalationExecutor(RecoveryActionExecutor):
                 f"for merchant '{context.merchant_id}' was escalated by the policy engine.\n"
                 f"Reason: {context.policy_reason}"
             ),
-            reference=f"escalate-{context.recovery_attempt_id}",
+            # .hex + shortened prefix, not str(uuid) — "escalate-" + str(uuid)
+            # would've been 45 chars, still over the cap even with .hex's
+            # shorter 32. See retry_payment_executor.py's comment.
+            reference=f"escal-{context.recovery_attempt_id.hex}",
         )
         try:
             result = self.notification_provider.send(request)

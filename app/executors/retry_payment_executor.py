@@ -25,7 +25,11 @@ class RetryPaymentExecutor(RecoveryActionExecutor):
             customer_name=context.customer_name,
             customer_email=context.customer_email,
             customer_phone=context.customer_phone,
-            reference=f"retry-{context.recovery_attempt_id}",
+            # .hex (32 chars, no dashes), not str(uuid) (36 chars) — Razorpay
+            # caps reference_id at 40 chars; "retry-" + str(uuid) was 42 and
+            # got rejected with a live 400 (json_validate_failed-style, but
+            # from Razorpay, not Groq) during Phase 3/5 end-to-end testing.
+            reference=f"retry-{context.recovery_attempt_id.hex}",
         )
         try:
             result = self.gateway_client.retry_payment(request)
