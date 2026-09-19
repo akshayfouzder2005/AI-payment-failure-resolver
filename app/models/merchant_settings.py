@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Integer, Numeric, String
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -17,11 +17,18 @@ class MerchantSettings(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     without a future schema change. `merchant_id` is a plain application
     identifier — not tied to any gateway — so it works the same in tests,
     demos, and multi-merchant setups later.
+
+    Phase 7 (auth): `merchant_id` is now a real FK into `merchants`
+    (previously just UNIQUE, no FK) rather than an unconstrained string —
+    see the Merchant model's docstring for why merchant_id is that
+    table's primary key rather than a new UUID.
     """
 
     __tablename__ = "merchant_settings"
 
-    merchant_id: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    merchant_id: Mapped[str] = mapped_column(
+        String(100), ForeignKey("merchants.merchant_id"), unique=True, index=True, nullable=False
+    )
 
     max_retry_count: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
     retry_delay_minutes: Mapped[int] = mapped_column(Integer, default=60, nullable=False)

@@ -63,12 +63,14 @@ class AIDecisionService:
         # Injectable for tests; defaults to whatever AI_PROVIDER configures.
         self.llm_provider = llm_provider or get_llm_provider()
 
-    def diagnose_payment(self, payment_id: UUID) -> AIDecision:
-        # Raises PaymentNotFoundError if the payment truly doesn't exist —
-        # left to propagate. There's no valid Payment row to attach even a
-        # fallback AIDecision to, so this isn't a case the fallback path
-        # can paper over (see PaymentNotFoundError's docstring).
-        context = self.context_builder.build(payment_id)
+    def diagnose_payment(self, payment_id: UUID, merchant_id: str | None = None) -> AIDecision:
+        # Raises PaymentNotFoundError if the payment truly doesn't exist,
+        # or (Phase 7) belongs to a different merchant than merchant_id —
+        # left to propagate either way. There's no valid Payment row to
+        # attach even a fallback AIDecision to, so this isn't a case the
+        # fallback path can paper over (see PaymentNotFoundError's
+        # docstring).
+        context = self.context_builder.build(payment_id, merchant_id=merchant_id)
 
         # Phase 6: fired once we know the payment genuinely exists (a
         # PaymentNotFoundError above means there's nothing to attach this

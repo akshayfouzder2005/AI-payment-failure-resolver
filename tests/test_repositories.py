@@ -9,6 +9,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from app.models.merchant import Merchant
 from app.models.merchant_settings import MerchantSettings
 from app.models.payment_event import PaymentEvent
 from app.repositories.audit_log_repository import AuditLogRepository
@@ -32,6 +33,8 @@ def test_customer_repository_get_by_email(db_session) -> None:
 
 
 def test_merchant_settings_repository_get_by_merchant_id(db_session) -> None:
+    db_session.add(Merchant(merchant_id="merchant_repo_test", name="merchant_repo_test"))
+    db_session.flush()
     repo = MerchantSettingsRepository(db_session)
     repo.add(MerchantSettings(merchant_id="merchant_repo_test", max_retry_count=5))
 
@@ -41,6 +44,8 @@ def test_merchant_settings_repository_get_by_merchant_id(db_session) -> None:
 
 
 def test_payment_repository_get_by_gateway_payment_id(db_session) -> None:
+    db_session.add(Merchant(merchant_id="merchant_payment_repo_test", name="merchant_payment_repo_test"))
+    db_session.flush()
     settings_repo = MerchantSettingsRepository(db_session)
     settings_repo.add(MerchantSettings(merchant_id="merchant_payment_repo_test"))
 

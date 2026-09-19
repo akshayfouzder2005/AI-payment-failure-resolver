@@ -77,9 +77,18 @@ class RecoveryExecutionService:
         self.get_executor = executor_factory
 
     def execute_recovery(
-        self, payment_id: UUID, ai_decision_id: UUID | None = None
+        self, payment_id: UUID, ai_decision_id: UUID | None = None, merchant_id: str | None = None
     ) -> RecoveryExecutionResult:
-        payment = self.payment_repo.get_by_id(payment_id)
+        """
+        `merchant_id` (Phase 7, auth): optional, same contract as
+        ContextBuilder.build/AuditService.get_payment_timeline — when
+        given, a payment owned by a different merchant raises the
+        identical PaymentNotFoundError as an unknown payment_id.
+        """
+        if merchant_id is not None:
+            payment = self.payment_repo.get_by_id_for_merchant(payment_id, merchant_id)
+        else:
+            payment = self.payment_repo.get_by_id(payment_id)
         if payment is None:
             raise PaymentNotFoundError(f"No payment found with id {payment_id}")
 

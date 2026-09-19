@@ -196,16 +196,83 @@ def make_merchant(db_session):
     PaymentService.ensure_default_merchant() does at ingestion time,
     but explicit here so tests can control policy values (e.g. a low
     high_risk_amount_threshold) directly.
+
+    Phase 7 (auth): MerchantSettings.merchant_id is now itself FK'd to
+    merchants.merchant_id, so this also get-or-creates the Merchant row
+    first — same lazy-provisioning pairing as the updated
+    ensure_default_merchant(). Still returns the MerchantSettings object
+    (unchanged return type/contract) so every existing caller of this
+    fixture keeps working untouched.
     """
+    from app.models.merchant import Merchant
     from app.models.merchant_settings import MerchantSettings
+    from app.repositories.merchant_repository import MerchantRepository
     from app.repositories.merchant_settings_repository import MerchantSettingsRepository
 
     def _make(merchant_id: str = "test_merchant", **overrides) -> MerchantSettings:
+        merchant_repo = MerchantRepository(db_session)
+        if merchant_repo.get_by_id(merchant_id) is None:
+            merchant_repo.add(Merchant(merchant_id=merchant_id, name=merchant_id))
+
         repo = MerchantSettingsRepository(db_session)
         existing = repo.get_by_merchant_id(merchant_id)
         if existing:
             return existing
         return repo.add(MerchantSettings(merchant_id=merchant_id, **overrides))
+
+    return _make
+
+
+@pytest.fixture
+def make_user(db_session, make_merchant):
+    """
+    Returns a factory that creates a User row for a given (or freshly
+    created) merchant — Phase 7 (auth). Always routes the merchant
+    through make_merchant() first (get-or-create), so passing an
+    already-existing merchant_id is safe and passing a brand-new one
+    works without a separate setup call.
+    """
+    import uuid as _uuid
+
+    from app.models.user import User
+    from app.repositories.user_repository import UserRepository
+    from app.security import hash_password
+
+    def _make(**overrides) -> User:
+        merchant_id = overrides.pop("merchant_id", None)
+        merchant_id = make_merchant(merchant_id=merchant_id).merchant_id if merchant_id else make_merchant().merchant_id
+
+        defaults = {
+            "merchant_id": merchant_id,
+            "name": "Test User",
+            "email": f"user_{_uuid.uuid4().hex[:10]}@example.com",
+            "password_hash": hash_password("Testpass123!"),
+            "is_active": True,
+        }
+        defaults.update(overrides)
+        return UserRepository(db_session).add(User(**defaults))
+
+    return _make
+
+
+@pytest.fixture
+def auth_headers(make_user):
+    """
+    Returns a factory that produces {"Authorization": "Bearer <token>"}
+    for a given (or freshly created) user — Phase 7 (auth). Issues the
+    token directly via app.security.create_access_token rather than
+    hitting POST /auth/login, the same "mirror production, but explicit
+    here" pattern as make_merchant above — tests that specifically
+    exercise the login endpoint's own behavior live in test_auth_api.py.
+    """
+    from app.security import create_access_token
+
+    def _make(user=None, merchant_id: str | None = None):
+        if user is None:
+            kwargs = {"merchant_id": merchant_id} if merchant_id else {}
+            user = make_user(**kwargs)
+        token = create_access_token(user_id=str(user.id), merchant_id=user.merchant_id)
+        return {"Authorization": f"Bearer {token}"}
 
     return _make
 

@@ -50,8 +50,21 @@ class ContextBuilder:
         self.merchant_repo = MerchantSettingsRepository(db)
         self.recovery_attempt_repo = RecoveryAttemptRepository(db)
 
-    def build(self, payment_id: uuid.UUID) -> PaymentContext:
-        payment = self.payment_repo.get_by_id(payment_id)
+    def build(self, payment_id: uuid.UUID, merchant_id: str | None = None) -> PaymentContext:
+        """
+        `merchant_id` (Phase 7, auth): when given, the payment must
+        belong to this merchant or this raises the exact same
+        PaymentNotFoundError as a truly unknown payment_id — see
+        PaymentRepository.get_by_id_for_merchant's docstring for why
+        that's deliberate. Left optional (default None = no check) so
+        every pre-Phase-7 caller/test that diagnoses a payment without an
+        authenticated merchant context keeps working unchanged; routes
+        always pass the real value.
+        """
+        if merchant_id is not None:
+            payment = self.payment_repo.get_by_id_for_merchant(payment_id, merchant_id)
+        else:
+            payment = self.payment_repo.get_by_id(payment_id)
         if payment is None:
             raise PaymentNotFoundError(f"No payment found with id {payment_id}")
 
