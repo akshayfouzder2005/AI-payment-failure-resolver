@@ -8,9 +8,11 @@ rows should look like afterward.
 """
 from app.config import get_settings
 from app.models.customer import Customer
+from app.models.merchant import Merchant
 from app.models.merchant_settings import MerchantSettings
 from app.models.payment import Payment
 from app.repositories.customer_repository import CustomerRepository
+from app.repositories.merchant_repository import MerchantRepository
 from app.repositories.merchant_settings_repository import MerchantSettingsRepository
 from app.repositories.payment_repository import PaymentRepository
 from app.integrations.payment_provider.base import NormalizedPaymentEvent
@@ -23,6 +25,7 @@ class PaymentService:
         self.payment_repo = PaymentRepository(db)
         self.customer_repo = CustomerRepository(db)
         self.merchant_repo = MerchantSettingsRepository(db)
+        self.merchants_repo = MerchantRepository(db)
 
     def ensure_default_merchant(self) -> MerchantSettings:
         """
@@ -30,8 +33,18 @@ class PaymentService:
         Payment.merchant_id (a real, enforced FK) always has something
         valid to point at without requiring manual setup before the first
         webhook can be demoed.
+
+        Phase 7 (auth): MerchantSettings.merchant_id is now itself FK'd to
+        merchants.merchant_id (see that model's docstring), so the
+        Merchant row must exist first — get-or-created here alongside
+        MerchantSettings, the same lazy-provisioning pattern this method
+        already used for MerchantSettings alone.
         """
         merchant_id = get_settings().default_merchant_id
+
+        if self.merchants_repo.get_by_id(merchant_id) is None:
+            self.merchants_repo.add(Merchant(merchant_id=merchant_id, name=merchant_id))
+
         merchant = self.merchant_repo.get_by_merchant_id(merchant_id)
         if merchant is None:
             merchant = self.merchant_repo.add(MerchantSettings(merchant_id=merchant_id))

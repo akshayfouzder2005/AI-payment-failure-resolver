@@ -27,6 +27,16 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173"
 
+    # --- Phase 7: authentication ---
+    # No default, unlike the provider keys below — an empty/guessable
+    # signing secret is a real vulnerability (anyone could mint a valid
+    # token), not a "runs in a degraded mode" tradeoff, so this matches
+    # database_url in being required rather than defaulting to "".
+    # Generate one with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 30
+
     # --- Phase 2: webhook ingestion ---
     # Empty by default so the app boots without it; RazorpayAdapter treats a
     # missing/empty secret as "cannot validate" and rejects every signature

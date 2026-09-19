@@ -71,3 +71,19 @@ class NotificationError(DomainError):
     PaymentGatewayError: caught by the executor, turned into a failed
     ExecutionOutcome.
     """
+
+
+class EmailAlreadyRegisteredError(DomainError):
+    """
+    Registration (Phase 7) was attempted with an email that already has
+    an account. Routed to a 409, not a 400 — the request was well-formed,
+    it just conflicts with existing state.
+    """
+
+
+class InvalidCredentialsError(DomainError):
+    """
+    Login (Phase 7) failed. Deliberately raised for unknown email, wrong
+    password, AND inactive account alike — distinguishing those in the
+    response would let a caller enumerate which emails have accounts.
+    """

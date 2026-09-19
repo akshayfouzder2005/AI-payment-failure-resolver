@@ -111,3 +111,8 @@ class AuditAction(str, Enum):
     ACTION_FAILED = "action_failed"
     PAYMENT_RECOVERED = "payment_recovered"
     ESCALATION_CREATED = "escalation_created"
+
+    # --- Phase 7: authentication ---
+    USER_REGISTERED = "user_registered"
+    USER_LOGIN = "user_login"
+    AUTHENTICATION_FAILED = "authentication_failed"

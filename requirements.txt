@@ -7,10 +7,23 @@ pydantic==2.10.4
 pydantic-settings==2.7.1
 python-dotenv==1.0.1
 
+# --- Phase 7: authentication ---
+# argon2-cffi: password hashing (OWASP-recommended default). PyJWT:
+# access-token issuance/validation. See app/security.py's docstring for
+# why these two libraries specifically.
+argon2-cffi==25.1.0
+PyJWT==2.10.1
+
 # --- Phase 3: AI decision service ---
 # Only required if AI_PROVIDER=anthropic or AI_PROVIDER=groq
 # respectively; the default "mock" provider needs no external SDK at all.
+# PRE-EXISTING GAP fixed alongside Phase 7, unrelated to auth: the
+# llm_provider factory (app/integrations/llm_provider/factory.py) always
+# imports AnthropicLLMProvider at module load time regardless of
+# AI_PROVIDER, so `anthropic` is a real import-time dependency of the
+# whole app, not an optional one — it was missing from this file.
 
+anthropic>=1.0.0,<2.0.0
 groq>=1.0.0,<2.0.0
 
 # --- Phase 5: recovery action execution ---

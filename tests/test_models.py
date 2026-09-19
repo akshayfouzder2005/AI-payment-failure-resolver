@@ -6,6 +6,7 @@ using the real Postgres test database via the db_session fixture.
 from decimal import Decimal
 
 from app.models.customer import Customer
+from app.models.merchant import Merchant
 from app.models.merchant_settings import MerchantSettings
 from app.models.payment import Payment
 
@@ -21,6 +22,7 @@ def test_customer_gets_uuid_and_timestamps(db_session) -> None:
 
 
 def test_merchant_settings_defaults(db_session) -> None:
+    db_session.add(Merchant(merchant_id="merchant_demo", name="merchant_demo"))
     settings = MerchantSettings(merchant_id="merchant_demo")
     db_session.add(settings)
     db_session.flush()
@@ -56,6 +58,7 @@ def test_payment_requires_valid_merchant_fk(db_session) -> None:
 
 
 def test_payment_customer_relationship(db_session) -> None:
+    db_session.add(Merchant(merchant_id="merchant_rel_test", name="merchant_rel_test"))
     settings = MerchantSettings(merchant_id="merchant_rel_test")
     customer = Customer(name="Rahul Singh", email="rahul@example.com")
     db_session.add_all([settings, customer])

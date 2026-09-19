@@ -32,15 +32,23 @@ class AuditService:
         self.recovery_attempt_repo = RecoveryAttemptRepository(db)
         self.audit_repo = AuditLogRepository(db)
 
-    def get_payment_timeline(self, payment_id: UUID) -> list[AuditLog]:
+    def get_payment_timeline(self, payment_id: UUID, merchant_id: str | None = None) -> list[AuditLog]:
         """
         Every audit row touching this payment's full entity graph, one
         chronological list — the "reconstruct what happened" endpoint's
         backing query. Raises PaymentNotFoundError for a bad payment_id
         rather than silently returning an empty timeline, matching how
         AIDecisionService/RecoveryExecutionService treat the same case.
+
+        `merchant_id` (Phase 7, auth): optional, same contract as
+        ContextBuilder.build — when given, a payment owned by a different
+        merchant raises the identical PaymentNotFoundError as an unknown
+        payment_id.
         """
-        payment = self.payment_repo.get_by_id(payment_id)
+        if merchant_id is not None:
+            payment = self.payment_repo.get_by_id_for_merchant(payment_id, merchant_id)
+        else:
+            payment = self.payment_repo.get_by_id(payment_id)
         if payment is None:
             raise PaymentNotFoundError(f"No payment found with id {payment_id}")
 
