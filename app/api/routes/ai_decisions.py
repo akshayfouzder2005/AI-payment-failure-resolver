@@ -1,17 +1,13 @@
 """
 AI decision endpoints — Phase 3. Merchant-scoped since Phase 7 (auth).
 
-`POST /ai-decisions/diagnose/{payment_id}` is what lets Phase 3 be
-demoed end-to-end without a frontend: run /simulate/failed-payment
-(Phase 2) to get a payment_id, then POST it here to see the exact
-structured JSON the AI decision layer produced and persisted.
-
-Not auto-triggered from webhook ingestion yet — WebhookService just logs
-"Flagged for AI-driven recovery analysis" (see its Phase 2 audit entry).
-Wiring ingestion straight into diagnosis is a Phase 4/5 concern once the
-policy engine exists to gate what happens with the result; calling it
-synchronously from Phase 3 today would mean returning outdated 2xx
-webhook acks to Razorpay while blocked on an LLM call.
+`POST /ai-decisions/diagnose/{payment_id}` lets a payment be re-diagnosed
+on demand — every "processed" webhook/simulate ingest already triggers
+this automatically via app/services/recovery_pipeline.py's background
+task, so most of the time a caller never needs to call this directly.
+It stays a first-class endpoint for re-running diagnosis (e.g. after
+merchant settings changed, or to demo Phase 3 in isolation) without
+re-ingesting a new event.
 
 Phase 7: both routes require a valid bearer token and are scoped to the
 caller's own merchant (current_merchant_id, derived from the token —
@@ -73,3 +69,4 @@ def list_decisions_for_payment(
         status_code=200,
         content=[AIDecisionRead.model_validate(d).model_dump(mode="json") for d in decisions],
     )
+

@@ -49,8 +49,19 @@ class WebhookService:
         self.payment_service = PaymentService(db)
 
     def ingest(
-        self, raw_body: bytes, headers: Mapping[str, str], adapter: PaymentProviderAdapter
+        self,
+        raw_body: bytes,
+        headers: Mapping[str, str],
+        adapter: PaymentProviderAdapter,
+        merchant_id: str | None = None,
     ) -> WebhookIngestResult:
+        """
+        merchant_id is an optional override for /simulate only (see
+        app/api/routes/simulate.py) — always None for the real Razorpay
+        route, which has no way to know a caller's internal merchant_id
+        from the webhook payload alone and must keep resolving to
+        settings.default_merchant_id via PaymentService.ensure_merchant.
+        """
         if not adapter.validate_signature(raw_body, headers):
             raise InvalidSignatureError("Webhook signature validation failed")
 
@@ -120,7 +131,7 @@ class WebhookService:
             )
 
         try:
-            payment = self.payment_service.upsert_from_event(normalized)
+            payment = self.payment_service.upsert_from_event(normalized, merchant_id=merchant_id)
 
             stored_event.payment_id = payment.id
             stored_event.processing_status = "processed"
@@ -139,7 +150,7 @@ class WebhookService:
                 "Payment",
                 payment.id,
                 "recovery_pipeline_queued",
-                "Flagged for AI-driven recovery analysis (implemented starting Phase 3)",
+                "Queued for automatic AI diagnosis, policy evaluation, and recovery execution.",
             )
             self.db.commit()
 
@@ -147,6 +158,7 @@ class WebhookService:
                 status="processed",
                 payment_event_id=stored_event.id,
                 payment_id=payment.id,
+                merchant_id=payment.merchant_id,
                 payment_status=payment.status,
                 payment_summary={
                     "gateway_payment_id": payment.gateway_payment_id,
@@ -197,3 +209,4 @@ class WebhookService:
                 details={"message": message, **extra},
             )
         )
+

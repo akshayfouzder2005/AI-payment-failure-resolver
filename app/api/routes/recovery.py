@@ -2,17 +2,12 @@
 Recovery execution endpoints — Phase 5. Merchant-scoped since Phase 7
 (auth).
 
-`POST /recovery/execute/{payment_id}` is what lets Phase 5 be demoed
-end-to-end without a frontend: run /simulate/failed-payment (Phase 2),
-POST /ai-decisions/diagnose/{payment_id} (Phase 3), then POST here to
-see the policy engine's verdict and the resulting RecoveryAttempt in one
-response.
-
-Not auto-triggered from AI diagnosis yet, for the same reason diagnosis
-isn't auto-triggered from webhook ingestion (see ai_decisions.py's
-docstring): each phase's endpoint stays independently callable so it can
-be demoed and tested in isolation before a later phase wires the whole
-pipeline together end-to-end automatically.
+`POST /recovery/execute/{payment_id}` lets a recovery be re-run on demand
+(e.g. against a specific historical ai_decision_id, or after re-diagnosis)
+— every "processed" webhook/simulate ingest already triggers diagnosis
+and execution automatically via app/services/recovery_pipeline.py's
+background task. This stays a first-class endpoint for manual/targeted
+re-execution, same reasoning as ai_decisions.py's diagnose route.
 
 Phase 7: both routes require a valid bearer token and are scoped to the
 caller's own merchant the same way ai_decisions.py's routes are — see
@@ -78,3 +73,4 @@ def list_recovery_attempts(
         status_code=200,
         content=[RecoveryAttemptRead.model_validate(a).model_dump(mode="json") for a in attempts],
     )
+

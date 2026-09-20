@@ -418,6 +418,15 @@ def main() -> None:
     parser.add_argument("--customers", type=int, default=40, help="Number of synthetic customers to create.")
     parser.add_argument("--seed", type=int, default=42, help="random.seed() value, for reproducible runs.")
     parser.add_argument("--no-reset", action="store_true", help="Append instead of clearing prior seeded data first.")
+    parser.add_argument(
+        "--merchant-id",
+        default=None,
+        help=(
+            "Seed data for this merchant_id instead of settings.default_merchant_id. "
+            "Use the merchant_id a real /auth/register call returned (see GET /auth/me) "
+            "so a logged-in demo account has something to see on its own dashboard."
+        ),
+    )
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -426,7 +435,7 @@ def main() -> None:
         if not args.no_reset:
             reset_seeded_data(db)
 
-        merchant = PaymentService(db).ensure_default_merchant()
+        merchant = PaymentService(db).ensure_merchant(args.merchant_id)
         db.commit()
 
         customers = seed_customers(db, args.customers)
@@ -448,3 +457,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

@@ -21,12 +21,15 @@ class SimulateFailedPaymentRequest(BaseModel):
     customer_phone: str | None = None
     failure_code: str | None = None
     failure_message: str | None = None
+    merchant_id: str | None = None  # attribute this simulated payment to a specific merchant; omit for the default one
 
 
 class WebhookIngestResult(BaseModel):
     status: Literal["processed", "duplicate", "ignored", "processing_failed"]
     payment_event_id: uuid.UUID
     payment_id: uuid.UUID | None = None
+    merchant_id: str | None = None
     payment_status: str | None = None
     payment_summary: dict | None = None
     detail: str | None = None
+

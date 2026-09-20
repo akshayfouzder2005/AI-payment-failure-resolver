@@ -11,7 +11,7 @@ small amount of DB-level strictness for significantly simpler migrations —
 an acceptable and reversible tradeoff for an MVP.
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -27,10 +27,30 @@ class UUIDPrimaryKeyMixin:
 
 
 class TimestampMixin:
-    """created_at / updated_at, managed by the database itself."""
+    """
+    created_at / updated_at, managed by the database itself.
+
+    created_at is given an explicit Python-side `default` (found during
+    post-Phase-7 backend verification), not just `server_default=func.now()`
+    alone — the same fix AuditLog.created_at already needed and got in
+    Phase 6, generalized here for every other timestamped model. Postgres's
+    now() returns the SAME value for every statement inside one
+    transaction: the seed script inserts many rows of one model before
+    its single commit(), and so does any endpoint or test that creates
+    several rows before committing — both would otherwise make those
+    rows indistinguishable in time and silently break any "newest
+    first"/chronological ordering (e.g. GET /payments). A callable
+    `default` is evaluated per-row at flush time, so ordering reflects
+    real call order even within one transaction. `server_default` is
+    left in place too, as a DB-level fallback for any row ever inserted
+    outside the ORM.
+    """
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -38,3 +58,4 @@ class TimestampMixin:
         onupdate=func.now(),
         nullable=False,
     )
+

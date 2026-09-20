@@ -38,6 +38,20 @@ os.environ["RECOVERY_GATEWAY_PROVIDER"] = "mock"
 os.environ["NOTIFICATION_PROVIDER"] = "mock"
 os.environ["AI_PROVIDER"] = "mock"
 
+# Same reasoning as the three overrides above, for the same reason: a
+# fresh `cp .env.example .env` leaves RAZORPAY_WEBHOOK_SECRET blank (it's
+# only required for the real webhook endpoint), and RazorpayAdapter
+# correctly fails closed (rejects every signature) when the configured
+# secret is empty. Without this override, the `sign()` fixture below
+# signs with settings.razorpay_webhook_secret, which is also blank in a
+# clean checkout, so every signed request in test_webhook_ingestion.py
+# and test_phase6_audit_events.py gets rejected with 400 regardless of
+# whether the signature actually matches. This has nothing to do with
+# webhook correctness (a real misconfigured secret SHOULD reject
+# everything) and everything to do with test determinism, so it's forced
+# here rather than documented as a manual .env setup step.
+os.environ["RAZORPAY_WEBHOOK_SECRET"] = "test_webhook_secret_do_not_use_in_prod"
+
 import hashlib
 import hmac
 import json
@@ -48,7 +62,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_background_session_factory, get_db
 from app.config import get_settings
 from app.database import Base
 from app.main import app
@@ -88,9 +102,32 @@ def engine(test_db_url):
 
 
 @pytest.fixture
-def db_session(engine) -> Session:
+def db_connection(engine):
     """
-    Yields a Session bound to a connection wrapped in an outer transaction.
+    The single connection + outer transaction every Session in a given
+    test shares — split out from db_session (below) so more than one
+    Session can be bound to the SAME transaction. Needed specifically for
+    background-task testing: app/services/recovery_pipeline.py opens its
+    own Session via a session_factory (see app.api.deps.
+    get_background_session_factory), and in production that's a totally
+    independent connection/transaction — correct there, but in tests it
+    would mean the background task's session can't see any of the
+    request's not-yet-really-committed (savepoint-only) writes. Binding a
+    second Session to this SAME connection, as the `client` fixture below
+    does for the background-task override, solves that without changing
+    anything about how the app itself uses sessions.
+    """
+    connection = engine.connect()
+    transaction = connection.begin()
+    yield connection
+    transaction.rollback()
+    connection.close()
+
+
+@pytest.fixture
+def db_session(db_connection) -> Session:
+    """
+    Yields a Session bound to db_connection's outer transaction.
 
     `join_transaction_mode="create_savepoint"` means that when the code
     under test (or the test itself) calls `session.rollback()` or
@@ -100,30 +137,41 @@ def db_session(engine) -> Session:
     Without this, a test that calls rollback() (e.g. simulating real
     error-handling code) would deassociate the outer transaction early.
     """
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(bind=connection, join_transaction_mode="create_savepoint")
+    session = Session(bind=db_connection, join_transaction_mode="create_savepoint")
 
     yield session
 
     session.close()
-    transaction.rollback()
-    connection.close()
 
 
 @pytest.fixture
-def client(db_session):
+def client(db_session, db_connection):
     """
     TestClient wired to the SAME db_session used by the test, via
     dependency override, so anything the request handler does (webhook
     ingestion, audit logging, ...) rolls back with the rest of the test's
     changes at teardown instead of leaking into other tests.
+
+    Also overrides get_background_session_factory (see its docstring) so
+    that app/services/recovery_pipeline.py's BackgroundTask — auto-fired
+    by /simulate and /webhooks/razorpay on a successful ingest — opens
+    its Session bound to this SAME db_connection instead of a real
+    independent SessionLocal(). Starlette's TestClient runs background
+    tasks synchronously as part of the request/response cycle, so by the
+    time client.post(...) returns, the pipeline (if it fired) has already
+    run and its writes are visible to the test's own db_session —
+    same connection, different Session object, so closing one never
+    affects the other.
     """
 
     def override_get_db():
         yield db_session
 
+    def override_background_session_factory():
+        return lambda: Session(bind=db_connection, join_transaction_mode="create_savepoint")
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_background_session_factory] = override_background_session_factory
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -396,3 +444,4 @@ def event_id_header():
         return {"x-razorpay-event-id": explicit_id or f"evt_{uuid.uuid4().hex}"}
 
     return _make
+

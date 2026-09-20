@@ -30,6 +30,29 @@ class PaymentRepository(BaseRepository[Payment]):
         stmt = select(Payment).where(Payment.customer_id == customer_id)
         return list(self.db.scalars(stmt).all())
 
+    def list_for_merchant(
+        self,
+        merchant_id: str,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[Payment]:
+        """
+        Merchant-scoped payment list — backs GET /payments. Newest first
+        (created_at desc): the Payments screen's job is surfacing recent
+        failures needing attention, not a stable historical archive
+        order. Optional status filter (e.g. "failed") narrows to
+        payments still needing action; omit it to see the full history.
+        merchant_id is baked into the WHERE clause (never filtered
+        client-side), the same scoping guarantee get_by_id_for_merchant
+        below gives a single lookup.
+        """
+        stmt = select(Payment).where(Payment.merchant_id == merchant_id)
+        if status is not None:
+            stmt = stmt.where(Payment.status == status)
+        stmt = stmt.order_by(Payment.created_at.desc()).limit(limit).offset(offset)
+        return list(self.db.scalars(stmt).all())
+
     def get_by_id_for_merchant(self, payment_id: uuid.UUID, merchant_id: str) -> Payment | None:
         """
         Merchant-scoped lookup — Phase 7 (auth). Returns None both when
@@ -43,3 +66,4 @@ class PaymentRepository(BaseRepository[Payment]):
         if payment is None or payment.merchant_id != merchant_id:
             return None
         return payment
+

@@ -7,7 +7,7 @@ so there is one obvious place to see the full set of exposed endpoints.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import ai_decisions, audit, auth, health, metrics, recovery, simulate, webhooks
+from app.api.routes import ai_decisions, audit, auth, health, metrics, payments, recovery, simulate, webhooks
 from app.config import get_settings
 
 settings = get_settings()
@@ -31,6 +31,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(webhooks.router)
 app.include_router(simulate.router)
+app.include_router(payments.router)
 app.include_router(ai_decisions.router)
 app.include_router(recovery.router)
 app.include_router(metrics.router)
@@ -40,3 +41,4 @@ app.include_router(audit.router)
 @app.get("/")
 def root() -> dict:
     return {"service": settings.app_name, "status": "running"}
+

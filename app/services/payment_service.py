@@ -27,12 +27,20 @@ class PaymentService:
         self.merchant_repo = MerchantSettingsRepository(db)
         self.merchants_repo = MerchantRepository(db)
 
-    def ensure_default_merchant(self) -> MerchantSettings:
+    def ensure_merchant(self, merchant_id: str | None = None) -> MerchantSettings:
         """
-        Get-or-create the single-tenant MVP's one MerchantSettings row, so
+        Get-or-create a MerchantSettings row for merchant_id (defaulting
+        to the single-tenant MVP's one settings.default_merchant_id), so
         Payment.merchant_id (a real, enforced FK) always has something
-        valid to point at without requiring manual setup before the first
-        webhook can be demoed.
+        valid to point at without requiring manual setup before the
+        first webhook can be demoed.
+
+        The optional merchant_id param exists for /simulate and the seed
+        script only (see their callers) — it lets a demo attribute
+        synthetic data to a specific already-registered merchant instead
+        of always the single default one, without touching the real
+        webhook path, which has no way to know a caller's internal
+        merchant_id and must keep resolving to the default.
 
         Phase 7 (auth): MerchantSettings.merchant_id is now itself FK'd to
         merchants.merchant_id (see that model's docstring), so the
@@ -40,7 +48,7 @@ class PaymentService:
         MerchantSettings, the same lazy-provisioning pattern this method
         already used for MerchantSettings alone.
         """
-        merchant_id = get_settings().default_merchant_id
+        merchant_id = merchant_id or get_settings().default_merchant_id
 
         if self.merchants_repo.get_by_id(merchant_id) is None:
             self.merchants_repo.add(Merchant(merchant_id=merchant_id, name=merchant_id))
@@ -49,6 +57,10 @@ class PaymentService:
         if merchant is None:
             merchant = self.merchant_repo.add(MerchantSettings(merchant_id=merchant_id))
         return merchant
+
+    def ensure_default_merchant(self) -> MerchantSettings:
+        """Back-compat alias for ensure_merchant(None) — kept so every existing caller/test/docstring reference keeps working untouched."""
+        return self.ensure_merchant(None)
 
     def _resolve_customer(self, normalized: NormalizedPaymentEvent) -> Customer | None:
         if not (normalized.customer_external_id or normalized.customer_email):
@@ -70,8 +82,10 @@ class PaymentService:
             )
         return customer
 
-    def upsert_from_event(self, normalized: NormalizedPaymentEvent) -> Payment:
-        merchant = self.ensure_default_merchant()
+    def upsert_from_event(
+        self, normalized: NormalizedPaymentEvent, merchant_id: str | None = None
+    ) -> Payment:
+        merchant = self.ensure_merchant(merchant_id)
         customer = self._resolve_customer(normalized)
 
         payment = self.payment_repo.get_by_gateway_payment_id(
@@ -112,3 +126,4 @@ class PaymentService:
             self.payment_repo.add(payment)
 
         return payment
+

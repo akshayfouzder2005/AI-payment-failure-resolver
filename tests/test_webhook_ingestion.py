@@ -33,7 +33,17 @@ def test_new_failed_payment_creates_full_chain(
     payment = db_session.scalars(
         select(Payment).where(Payment.gateway_payment_id == "pay_CHAIN001")
     ).one()
-    assert payment.status == "failed"
+    # NOT "failed" — the auto-chain (app/services/recovery_pipeline.py)
+    # already ran by the time this line executes (TestClient runs
+    # BackgroundTasks synchronously as part of the request/response
+    # cycle). This fixture's failure message ("insufficient funds")
+    # deterministically classifies as RETRY_PAYMENT via MockLLMProvider,
+    # the default merchant policy has no threshold that blocks it at
+    # ₹500, and MockPaymentGatewayClient succeeds deterministically by
+    # default — so "recovered" is the correct, non-flaky final state,
+    # not a race. The ingestion-time state ("failed") is still what the
+    # HTTP response itself reports, asserted above via data["payment_status"].
+    assert payment.status == "recovered"
     assert payment.failure_code == "BAD_REQUEST_ERROR"
 
     customer = db_session.scalars(
@@ -202,7 +212,15 @@ def test_audit_actions_recorded_for_successful_ingest(
     actions = {log.action for log in logs}
     assert "payment_failed_recorded" in actions
     assert "recovery_pipeline_queued" in actions
-    assert all(log.actor == "system" for log in logs)
+
+    # Ingestion's own entries are all attributed to "system" — the
+    # auto-chain that now also runs (app/services/recovery_pipeline.py)
+    # adds its own entries under "ai_engine"/"policy_engine"/"executor",
+    # so the blanket "every log this test produced is system" no longer
+    # holds across the WHOLE audit trail; scope it to ingestion's own
+    # entities instead (PaymentEvent, and Payment's ingestion-stage rows).
+    ingestion_actions = {"webhook_received", "payment_failed_recorded", "recovery_pipeline_queued"}
+    assert all(log.actor == "system" for log in logs if log.action in ingestion_actions)
 
 
 def test_default_merchant_auto_provisioned_on_first_use(
@@ -256,3 +274,47 @@ def test_simulate_two_calls_produce_two_independent_events(client, db_session) -
     client.post("/simulate/failed-payment", json={})
     assert len(db_session.scalars(select(PaymentEvent)).all()) == 2
     assert len(db_session.scalars(select(Payment)).all()) == 2
+
+
+def test_simulate_without_merchant_id_uses_default_merchant(client, db_session) -> None:
+    from app.config import get_settings
+
+    response = client.post("/simulate/failed-payment", json={})
+    payment = db_session.scalars(select(Payment).where(Payment.id == response.json()["payment_id"])).one()
+    assert payment.merchant_id == get_settings().default_merchant_id
+
+
+def test_simulate_honors_merchant_id_override(client, db_session, make_merchant) -> None:
+    """
+    A caller who already knows their own merchant_id (from GET /auth/me)
+    can attribute a simulated payment to themselves instead of always
+    the single default merchant — see app/api/routes/simulate.py.
+    """
+    make_merchant(merchant_id="acme-store-1234")
+
+    response = client.post("/simulate/failed-payment", json={"merchant_id": "acme-store-1234"})
+    assert response.status_code == 200
+
+    payment = db_session.scalars(select(Payment).where(Payment.id == response.json()["payment_id"])).one()
+    assert payment.merchant_id == "acme-store-1234"
+
+
+def test_simulate_merchant_id_override_auto_provisions_unknown_merchant(client, db_session) -> None:
+    """merchant_id doesn't have to already exist — ensure_merchant() lazily provisions it, same as the default merchant."""
+    response = client.post("/simulate/failed-payment", json={"merchant_id": "brand-new-merchant-9999"})
+    assert response.status_code == 200
+
+    payment = db_session.scalars(select(Payment).where(Payment.id == response.json()["payment_id"])).one()
+    assert payment.merchant_id == "brand-new-merchant-9999"
+
+
+def test_simulate_merchant_id_is_not_leaked_into_synthetic_payload(client, db_session) -> None:
+    """merchant_id is routing info for WebhookService.ingest(), not a field of the synthetic payment.failed event body."""
+    response = client.post(
+        "/simulate/failed-payment",
+        json={"merchant_id": "acme-store-1234", "customer_email": "vip@example.com"},
+    )
+    assert response.status_code == 200
+    event = db_session.scalars(select(PaymentEvent).where(PaymentEvent.payment_id == response.json()["payment_id"])).one()
+    assert "merchant_id" not in event.payload
+

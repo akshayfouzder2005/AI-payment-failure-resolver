@@ -112,7 +112,21 @@ class AuditAction(str, Enum):
     PAYMENT_RECOVERED = "payment_recovered"
     ESCALATION_CREATED = "escalation_created"
 
+    # --- Post-Phase-7 backend verification: automatic pipeline chaining ---
+    # Fired only when the auto-chain (app/services/recovery_pipeline.py)
+    # itself blows up in a way AIDecisionService/RecoveryExecutionService's
+    # own defensive fallback handling didn't already absorb — every
+    # expected failure mode (LLM unavailable, malformed output, low
+    # confidence, executor failure...) already has its own audit event
+    # from those services and never reaches this one. This is the
+    # doc-requested "processing stopped" event, scoped narrowly to
+    # "the background pipeline stopped without completing" rather than
+    # reused for every REJECT/ESCALATE verdict, which already has its own
+    # more specific event.
+    PROCESSING_STOPPED = "processing_stopped"
+
     # --- Phase 7: authentication ---
     USER_REGISTERED = "user_registered"
     USER_LOGIN = "user_login"
     AUTHENTICATION_FAILED = "authentication_failed"
+
