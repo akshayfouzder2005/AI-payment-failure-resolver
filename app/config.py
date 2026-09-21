@@ -97,17 +97,41 @@ class Settings(BaseSettings):
     # outbound API auth.
     razorpay_api_timeout_seconds: float = 15.0
 
-    # Only "mock" exists for Phase 5: it logs the notification and
-    # returns success, which is enough to demonstrate SEND_NOTIFICATION /
-    # ESCALATE_TO_MERCHANT end-to-end. Wiring a real channel (e.g. an
-    # email or SMS provider) is a real integration with its own
-    # documented API and is out of scope until one is actually needed.
+    # "mock" (default): logs the notification and returns success, zero
+    # credentials. "live" (Phase 8): routes by NotificationRequest.
+    # channel — email through Brevo, sms through Twilio — using
+    # whichever of the two below has credentials configured.
     notification_provider: str = "mock"
     # Single-tenant MVP (see MerchantSettings docstring) — there is no
     # per-merchant contact column, so ESCALATE_TO_MERCHANT notifies this
     # one operational address rather than a speculative DB column no
     # other feature would use yet.
     merchant_escalation_email: str = "ops@merchant.example"
+
+    # --- Phase 8: live notification channels ---
+    # Brevo (email) — from app.brevo.com > SMTP & API > API Keys. Only
+    # required when NOTIFICATION_PROVIDER=live.
+    brevo_api_key: str = ""
+    # Must be a sender already verified in the Brevo account (Senders,
+    # Domains & Dedicated IPs) — Brevo rejects the send otherwise, even
+    # with a valid API key.
+    brevo_sender_email: str = ""
+    brevo_sender_name: str = "Revenue Recovery Agent"
+    brevo_api_timeout_seconds: float = 15.0
+
+    # Twilio (sms) — from the Twilio Console. Account SID is always
+    # required (used directly in the API path); for the Basic Auth
+    # credential, set either the API Key SID/Secret pair (preferred —
+    # independently revocable) or the Auth Token. Only required when
+    # NOTIFICATION_PROVIDER=live.
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_api_key_sid: str = ""
+    twilio_api_key_secret: str = ""
+    # E.164 format (e.g. +15005550006) — the Twilio number/sender
+    # messages are sent from.
+    twilio_from_number: str = ""
+    twilio_api_timeout_seconds: float = 15.0
 
     @property
     def cors_origin_list(self) -> list[str]:
