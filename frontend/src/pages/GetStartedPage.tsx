@@ -12,7 +12,7 @@ const HOW_IT_WORKS = [
 export function GetStartedPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-6 py-16 text-text">
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-3xl">
         <div className="mb-1 text-sm font-semibold tracking-tight">
           Recover<span className="text-accent">AI</span>
         </div>

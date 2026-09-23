@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  // Central 401 handling (lib/api.ts): any authenticated requests that comes
+  // Central 401 handling (lib/api.ts): any authenticated request that comes
   // back 401 clears the token and fires this event so the app state and the
   // stored token never disagree, wherever in the app the call happened.
   useEffect(() => {

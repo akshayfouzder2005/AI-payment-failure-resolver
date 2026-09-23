@@ -317,7 +317,7 @@ export function useAuth(): AuthContextValue {
 }
 EOF
 
-echo "Writing src/pages/GetStartedPage.tsx (removes dead links, fixes How It Works + mono misuse)..."
+echo "Writing src/pages/GetStartedPage.tsx (removes dead links, fixes How It Works + mono misuse + chain wrap)..."
 cat > "$FRONTEND_DIR/src/pages/GetStartedPage.tsx" << 'EOF'
 import { Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
@@ -333,7 +333,7 @@ const HOW_IT_WORKS = [
 export function GetStartedPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-6 py-16 text-text">
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-3xl">
         <div className="mb-1 text-sm font-semibold tracking-tight">
           Recover<span className="text-accent">AI</span>
         </div>
