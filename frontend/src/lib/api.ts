@@ -1,4 +1,4 @@
-import { getToken } from "./auth";
+import { clearToken, getToken } from "./auth";
 import type {
   AIDecisionRead,
   AuditLogRead,
@@ -84,6 +84,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const parsed = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
+    // Central 401 handling: an authenticated request that comes back 401 means
+    // the stored token is dead (expired/revoked), not that this one call failed.
+    // Clear it and tell the rest of the app so a stale session never lingers as
+    // a half-authenticated shell. Login/register calls are unauthenticated
+    // requests (auth: false) and never reach this branch — a wrong password is
+    // not a session-expiry event.
+    if (response.status === 401 && auth) {
+      clearToken();
+      window.dispatchEvent(new Event("recoverai:unauthorized"));
+    }
     throw new ApiError(response.status, extractErrorMessage(response.status, parsed));
   }
 
