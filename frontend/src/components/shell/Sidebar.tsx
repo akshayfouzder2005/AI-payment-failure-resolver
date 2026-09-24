@@ -22,7 +22,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           className={({ isActive }) =>
             `focus-ring rounded px-2 py-1.5 text-sm transition-colors duration-150 ${
               isActive
-                ? "border-l-2 border-border-strong bg-accent-muted pl-[7px] text-accent"
+                ? "border-l-2 border-border-strong pl-[7px] text-accent"
                 : "border-l-2 border-transparent pl-[7px] text-text-muted hover:text-text"
             }`
           }
