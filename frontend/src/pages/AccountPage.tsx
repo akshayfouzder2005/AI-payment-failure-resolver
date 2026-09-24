@@ -17,7 +17,7 @@ export function AccountPage() {
         <Row label="Merchant ID" value={user.merchant_id} mono />
       </dl>
 
-      <Button variant="danger" onClick={logout} className="mt-6">
+      <Button variant="secondary" onClick={logout} className="mt-6">
         Log out
       </Button>
     </div>

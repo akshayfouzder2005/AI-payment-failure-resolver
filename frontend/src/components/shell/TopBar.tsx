@@ -4,32 +4,45 @@ import * as api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import type { HealthResponse } from "../../types/api";
 
-type SystemStatus = "checking" | "operational" | "degraded";
+type CheckState = "checking" | "ok" | "down";
 
 /**
  * Real health/environment signal only — see design spec correction pass,
- * §1/§8. Never a hardcoded "All systems operational"; if either check
- * fails, or hasn't resolved yet, that's what's shown.
+ * §1/§8. Never a hardcoded "All systems operational". The API and DB checks
+ * are independent: one failing must never hide or override the other's
+ * result, and the spec explicitly asks for two dots when they diverge.
  */
-export function TopBar() {
+export function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
   const { user, logout } = useAuth();
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [systemStatus, setSystemStatus] = useState<SystemStatus>("checking");
+  const [apiState, setApiState] = useState<CheckState>("checking");
+  const [dbState, setDbState] = useState<CheckState>("checking");
   const [providersOpen, setProvidersOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function check() {
-      try {
-        const [healthResult] = await Promise.all([api.getHealth(), api.getHealthDb()]);
-        if (cancelled) return;
-        setHealth(healthResult);
-        setSystemStatus("operational");
-      } catch {
-        if (!cancelled) setSystemStatus("degraded");
-      }
+    function check() {
+      api
+        .getHealth()
+        .then((result) => {
+          if (cancelled) return;
+          setHealth(result);
+          setApiState("ok");
+        })
+        .catch(() => {
+          if (!cancelled) setApiState("down");
+        });
+
+      api
+        .getHealthDb()
+        .then(() => {
+          if (!cancelled) setDbState("ok");
+        })
+        .catch(() => {
+          if (!cancelled) setDbState("down");
+        });
     }
 
     check();
@@ -59,9 +72,20 @@ export function TopBar() {
         .toUpperCase()
     : "";
 
+  const bothResolved = apiState !== "checking" && dbState !== "checking";
+  const bothOk = apiState === "ok" && dbState === "ok";
+
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-canvas px-5">
-      <div className="flex items-center gap-4">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-canvas px-5 md:px-8">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onOpenNav}
+          aria-label="Open navigation"
+          className="focus-ring -ml-1 rounded p-1 text-text-muted hover:text-text md:hidden"
+        >
+          <span className="block h-2.5 w-4 border-y border-current" aria-hidden="true" />
+        </button>
+
         <span className="text-sm font-semibold tracking-tight md:hidden">
           Recover<span className="text-accent">AI</span>
         </span>
@@ -98,21 +122,30 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1.5 text-xs text-text-muted">
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              systemStatus === "operational"
-                ? "bg-success"
-                : systemStatus === "degraded"
-                  ? "bg-danger"
-                  : "bg-text-faint"
-            }`}
-            aria-hidden="true"
-          />
-          {systemStatus === "checking" ? "Checking…" : systemStatus === "operational" ? "Operational" : "Degraded"}
-        </div>
+        {!bothResolved || bothOk ? (
+          <div className="flex items-center gap-1.5 text-body-small text-text-muted">
+            <StatusDot state={!bothResolved ? "checking" : "ok"} />
+            {!bothResolved ? "Checking…" : "Operational"}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 text-body-small text-text-muted">
+            <span className="flex items-center gap-1.5">
+              <StatusDot state={apiState} />
+              API
+            </span>
+            <span className="flex items-center gap-1.5">
+              <StatusDot state={dbState} />
+              DB
+            </span>
+          </div>
+        )}
 
-        {user && <span className="hidden text-sm text-text-muted sm:inline">{user.merchant_name}</span>}
+        {user && (
+          <>
+            <span className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
+            <span className="hidden text-sm text-text-muted sm:inline">{user.merchant_name}</span>
+          </>
+        )}
 
         <Link
           to="/app/account"
@@ -129,5 +162,16 @@ export function TopBar() {
         </button>
       </div>
     </header>
+  );
+}
+
+function StatusDot({ state }: { state: CheckState }) {
+  return (
+    <span
+      className={`h-1.5 w-1.5 rounded-full ${
+        state === "ok" ? "bg-success" : state === "down" ? "bg-danger" : "bg-text-faint"
+      }`}
+      aria-hidden="true"
+    />
   );
 }
