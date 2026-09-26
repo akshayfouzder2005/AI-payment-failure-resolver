@@ -30,7 +30,7 @@ export function RecoveryActivity({ payments }: { payments: PaymentRead[] }) {
 
   return (
     <section>
-      <h2 className="text-label uppercase text-text-faint">Recovery Activity</h2>
+      <h2 className="text-subhead text-text">Recovery Activity</h2>
 
       {items.length === 0 ? (
         <p className="mt-3 text-body-small text-text-faint">No recovery activity yet.</p>
@@ -40,7 +40,7 @@ export function RecoveryActivity({ payments }: { payments: PaymentRead[] }) {
             <li key={payment.id}>
               <Link
                 to={`/app/payments/${payment.id}`}
-                className="focus-ring flex items-center justify-between gap-4 py-2.5 transition-colors duration-150 hover:bg-surface-raised"
+                className="focus-ring flex items-center justify-between gap-4 py-3 transition-colors duration-150 hover:bg-surface-raised"
               >
                 <span className="flex items-center gap-3">
                   <StatusChip status={payment.status} />

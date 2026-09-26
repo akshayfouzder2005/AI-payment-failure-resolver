@@ -88,7 +88,7 @@ export function OverviewPage() {
     <div>
       <h1 className="mb-8 text-heading">Overview</h1>
 
-      <div className="space-y-10">
+      <div className="space-y-12">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
           <div className="lg:col-span-8">
             <RevenuePosition metrics={metrics} />
@@ -98,7 +98,7 @@ export function OverviewPage() {
           </div>
         </div>
 
-        <div className="space-y-10 border-t border-border pt-10">
+        <div className="space-y-12 border-t border-border pt-12">
           <OutcomeDistribution metrics={metrics} />
           <RecoveryActivity payments={payments} />
           <RecentPayments payments={payments} />

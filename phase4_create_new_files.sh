@@ -163,7 +163,7 @@ export function EmptyState({
   note?: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-surface px-6 py-10 text-center">
+    <div className="rounded-lg border border-border bg-surface px-6 py-8 text-center">
       <h2 className="text-heading">{title}</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-text-muted">{description}</p>
       {action && <div className="mt-6 flex justify-center">{action}</div>}
@@ -287,15 +287,15 @@ export function RevenuePosition({ metrics }: { metrics: MetricsSummary }) {
 
   return (
     <section>
-      <h2 className="text-label uppercase text-text-faint">Revenue Position</h2>
+      <h2 className="text-subhead text-text">Revenue Position</h2>
 
-      <div className="mt-4 flex flex-wrap items-end gap-x-10 gap-y-5">
+      <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
         <div>
           <div className="text-body-small text-text-muted">Revenue recovered</div>
           <div className="text-display tabular-nums text-success">{formatCurrency(metrics.revenue_recovered)}</div>
         </div>
 
-        <div className="pb-1.5">
+        <div className="pb-2">
           <div className="text-body-small text-text-muted">Recovery rate</div>
           <div className="text-heading tabular-nums text-text">{formatPercent(metrics.recovery_rate)}</div>
         </div>
@@ -343,7 +343,7 @@ import type { MetricsSummary } from "../../types/api";
 export function RecoveryPosture({ metrics }: { metrics: MetricsSummary }) {
   return (
     <section>
-      <h2 className="text-label uppercase text-text-faint">Recovery Posture</h2>
+      <h2 className="text-subhead text-text">Recovery Posture</h2>
       <dl className="mt-4 divide-y divide-border rounded-lg border border-border">
         <Row label="Payments analyzed" value={formatCount(metrics.payments_analyzed)} />
         <Row label="Recovered" value={formatCount(metrics.recovered_count)} />
@@ -356,7 +356,7 @@ export function RecoveryPosture({ metrics }: { metrics: MetricsSummary }) {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2.5">
+    <div className="flex items-center justify-between px-4 py-3">
       <dt className="text-sm text-text-muted">{label}</dt>
       <dd className="text-sm tabular-nums text-text">{value}</dd>
     </div>
@@ -392,7 +392,7 @@ export function OutcomeDistribution({ metrics }: { metrics: MetricsSummary }) {
 
   return (
     <section>
-      <h2 className="text-label uppercase text-text-faint">Outcome Distribution</h2>
+      <h2 className="text-subhead text-text">Outcome Distribution</h2>
       <div className="mt-4 max-w-xl">
         <ProportionBar
           segments={[
@@ -456,7 +456,7 @@ export function RecoveryActivity({ payments }: { payments: PaymentRead[] }) {
 
   return (
     <section>
-      <h2 className="text-label uppercase text-text-faint">Recovery Activity</h2>
+      <h2 className="text-subhead text-text">Recovery Activity</h2>
 
       {items.length === 0 ? (
         <p className="mt-3 text-body-small text-text-faint">No recovery activity yet.</p>
@@ -466,7 +466,7 @@ export function RecoveryActivity({ payments }: { payments: PaymentRead[] }) {
             <li key={payment.id}>
               <Link
                 to={`/app/payments/${payment.id}`}
-                className="focus-ring flex items-center justify-between gap-4 py-2.5 transition-colors duration-150 hover:bg-surface-raised"
+                className="focus-ring flex items-center justify-between gap-4 py-3 transition-colors duration-150 hover:bg-surface-raised"
               >
                 <span className="flex items-center gap-3">
                   <StatusChip status={payment.status} />
@@ -625,7 +625,7 @@ export function RecentPayments({ payments }: { payments: PaymentRead[] }) {
 
   return (
     <section>
-      <h2 className="text-label uppercase text-text-faint">Recent Payment Activity</h2>
+      <h2 className="text-subhead text-text">Recent Payment Activity</h2>
 
       {rows.length === 0 ? (
         <p className="mt-3 text-body-small text-text-faint">No payments yet.</p>
@@ -634,16 +634,16 @@ export function RecentPayments({ payments }: { payments: PaymentRead[] }) {
           <table className="w-full text-left text-body-small">
             <thead>
               <tr className="border-b border-border text-text-faint">
-                <th scope="col" className="py-2 pr-4 font-normal">
+                <th scope="col" className="py-3 pr-4 font-normal">
                   Amount
                 </th>
-                <th scope="col" className="py-2 pr-4 font-normal">
+                <th scope="col" className="py-3 pr-4 font-normal">
                   Status
                 </th>
-                <th scope="col" className="py-2 pr-4 font-normal">
+                <th scope="col" className="py-3 pr-4 font-normal">
                   Customer
                 </th>
-                <th scope="col" className="py-2 pr-0 text-right font-normal">
+                <th scope="col" className="py-3 pr-0 text-right font-normal">
                   Created
                 </th>
               </tr>
@@ -663,14 +663,14 @@ export function RecentPayments({ payments }: { payments: PaymentRead[] }) {
                   }}
                   className="focus-ring cursor-pointer border-b border-border transition-colors duration-150 last:border-b-0 hover:bg-surface-raised"
                 >
-                  <td className="py-2.5 pr-4 tabular-nums text-text">
+                  <td className="py-3 pr-4 tabular-nums text-text">
                     {formatCurrency(payment.amount, payment.currency)}
                   </td>
-                  <td className="py-2.5 pr-4">
+                  <td className="py-3 pr-4">
                     <StatusChip status={payment.status} />
                   </td>
-                  <td className="py-2.5 pr-4 text-text-muted">{payment.customer?.name ?? "—"}</td>
-                  <td className="py-2.5 pr-0 text-right text-text-faint">{formatRelativeTime(payment.created_at)}</td>
+                  <td className="py-3 pr-4 text-text-muted">{payment.customer?.name ?? "—"}</td>
+                  <td className="py-3 pr-0 text-right text-text-faint">{formatRelativeTime(payment.created_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -697,7 +697,7 @@ export function QuickDemoEntry() {
   const navigate = useNavigate();
 
   return (
-    <section className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-surface px-5 py-4">
+    <section className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-surface px-6 py-4">
       <div>
         <h2 className="text-sm font-medium text-text">Test the full pipeline with a simulated failure</h2>
         <p className="mt-1 text-body-small text-text-muted">
@@ -725,7 +725,7 @@ import { Skeleton } from "../ui/Skeleton";
 export function OverviewSkeleton() {
   return (
     <div
-      className="space-y-10"
+      className="space-y-12"
       role="status"
       aria-busy="true"
       aria-label="Loading dashboard"
@@ -733,7 +733,7 @@ export function OverviewSkeleton() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-8">
           <Skeleton className="h-3 w-32" />
-          <div className="flex gap-10">
+          <div className="flex gap-8">
             <Skeleton className="h-10 w-40" />
             <Skeleton className="h-10 w-40" />
           </div>
@@ -745,7 +745,7 @@ export function OverviewSkeleton() {
         </div>
       </div>
 
-      <div className="space-y-10 border-t border-border pt-10">
+      <div className="space-y-12 border-t border-border pt-12">
         <div className="space-y-4">
           <Skeleton className="h-3 w-40" />
           <Skeleton className="h-2 w-full max-w-xl" />

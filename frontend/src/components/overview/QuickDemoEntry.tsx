@@ -11,7 +11,7 @@ export function QuickDemoEntry() {
   const navigate = useNavigate();
 
   return (
-    <section className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-surface px-5 py-4">
+    <section className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-surface px-6 py-4">
       <div>
         <h2 className="text-sm font-medium text-text">Test the full pipeline with a simulated failure</h2>
         <p className="mt-1 text-body-small text-text-muted">

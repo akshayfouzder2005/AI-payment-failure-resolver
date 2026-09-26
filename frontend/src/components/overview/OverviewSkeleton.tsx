@@ -9,7 +9,7 @@ import { Skeleton } from "../ui/Skeleton";
 export function OverviewSkeleton() {
   return (
     <div
-      className="space-y-10"
+      className="space-y-12"
       role="status"
       aria-busy="true"
       aria-label="Loading dashboard"
@@ -17,7 +17,7 @@ export function OverviewSkeleton() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-8">
           <Skeleton className="h-3 w-32" />
-          <div className="flex gap-10">
+          <div className="flex gap-8">
             <Skeleton className="h-10 w-40" />
             <Skeleton className="h-10 w-40" />
           </div>
@@ -29,7 +29,7 @@ export function OverviewSkeleton() {
         </div>
       </div>
 
-      <div className="space-y-10 border-t border-border pt-10">
+      <div className="space-y-12 border-t border-border pt-12">
         <div className="space-y-4">
           <Skeleton className="h-3 w-40" />
           <Skeleton className="h-2 w-full max-w-xl" />

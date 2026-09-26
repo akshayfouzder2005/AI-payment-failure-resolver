@@ -24,7 +24,7 @@ export function OutcomeDistribution({ metrics }: { metrics: MetricsSummary }) {
 
   return (
     <section>
-      <h2 className="text-label uppercase text-text-faint">Outcome Distribution</h2>
+      <h2 className="text-subhead text-text">Outcome Distribution</h2>
       <div className="mt-4 max-w-xl">
         <ProportionBar
           segments={[

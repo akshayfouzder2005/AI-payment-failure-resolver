@@ -16,15 +16,15 @@ export function RevenuePosition({ metrics }: { metrics: MetricsSummary }) {
 
   return (
     <section>
-      <h2 className="text-label uppercase text-text-faint">Revenue Position</h2>
+      <h2 className="text-subhead text-text">Revenue Position</h2>
 
-      <div className="mt-4 flex flex-wrap items-end gap-x-10 gap-y-5">
+      <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
         <div>
           <div className="text-body-small text-text-muted">Revenue recovered</div>
           <div className="text-display tabular-nums text-success">{formatCurrency(metrics.revenue_recovered)}</div>
         </div>
 
-        <div className="pb-1.5">
+        <div className="pb-2">
           <div className="text-body-small text-text-muted">Recovery rate</div>
           <div className="text-heading tabular-nums text-text">{formatPercent(metrics.recovery_rate)}</div>
         </div>

@@ -28,7 +28,7 @@ export function RecentPayments({ payments }: { payments: PaymentRead[] }) {
 
   return (
     <section>
-      <h2 className="text-label uppercase text-text-faint">Recent Payment Activity</h2>
+      <h2 className="text-subhead text-text">Recent Payment Activity</h2>
 
       {rows.length === 0 ? (
         <p className="mt-3 text-body-small text-text-faint">No payments yet.</p>
@@ -37,16 +37,16 @@ export function RecentPayments({ payments }: { payments: PaymentRead[] }) {
           <table className="w-full text-left text-body-small">
             <thead>
               <tr className="border-b border-border text-text-faint">
-                <th scope="col" className="py-2 pr-4 font-normal">
+                <th scope="col" className="py-3 pr-4 font-normal">
                   Amount
                 </th>
-                <th scope="col" className="py-2 pr-4 font-normal">
+                <th scope="col" className="py-3 pr-4 font-normal">
                   Status
                 </th>
-                <th scope="col" className="py-2 pr-4 font-normal">
+                <th scope="col" className="py-3 pr-4 font-normal">
                   Customer
                 </th>
-                <th scope="col" className="py-2 pr-0 text-right font-normal">
+                <th scope="col" className="py-3 pr-0 text-right font-normal">
                   Created
                 </th>
               </tr>
@@ -66,14 +66,14 @@ export function RecentPayments({ payments }: { payments: PaymentRead[] }) {
                   }}
                   className="focus-ring cursor-pointer border-b border-border transition-colors duration-150 last:border-b-0 hover:bg-surface-raised"
                 >
-                  <td className="py-2.5 pr-4 tabular-nums text-text">
+                  <td className="py-3 pr-4 tabular-nums text-text">
                     {formatCurrency(payment.amount, payment.currency)}
                   </td>
-                  <td className="py-2.5 pr-4">
+                  <td className="py-3 pr-4">
                     <StatusChip status={payment.status} />
                   </td>
-                  <td className="py-2.5 pr-4 text-text-muted">{payment.customer?.name ?? "—"}</td>
-                  <td className="py-2.5 pr-0 text-right text-text-faint">{formatRelativeTime(payment.created_at)}</td>
+                  <td className="py-3 pr-4 text-text-muted">{payment.customer?.name ?? "—"}</td>
+                  <td className="py-3 pr-0 text-right text-text-faint">{formatRelativeTime(payment.created_at)}</td>
                 </tr>
               ))}
             </tbody>
