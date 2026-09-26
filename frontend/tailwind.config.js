@@ -34,6 +34,8 @@ export default {
         display: ["2.75rem", { lineHeight: "1.1", letterSpacing: "-0.01em", fontWeight: "600" }],
         heading: ["1.25rem", { lineHeight: "1.3", fontWeight: "600" }],
         subhead: ["0.9375rem", { lineHeight: "1.4", letterSpacing: "0.01em", fontWeight: "600" }],
+        body: ["0.9375rem", { lineHeight: "1.5", fontWeight: "400" }],
+        "body-small": ["0.8125rem", { lineHeight: "1.5", fontWeight: "400" }],
         label: ["0.6875rem", { lineHeight: "1.4", letterSpacing: "0.08em", fontWeight: "600" }],
       },
       borderRadius: {
