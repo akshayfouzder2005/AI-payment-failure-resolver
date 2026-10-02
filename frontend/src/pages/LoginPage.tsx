@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -39,27 +40,22 @@ export function LoginPage() {
           </div>
         )}
 
-        <label className="mb-3 block text-sm">
-          <span className="mb-1 block text-text-muted">Email</span>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="focus-ring w-full rounded border border-border bg-surface px-3 py-2 text-text outline-none"
-          />
-        </label>
+        <Input
+          label="Email"
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-        <label className="mb-6 block text-sm">
-          <span className="mb-1 block text-text-muted">Password</span>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="focus-ring w-full rounded border border-border bg-surface px-3 py-2 text-text outline-none"
-          />
-        </label>
+        <Input
+          label="Password"
+          type="password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          wrapperClassName="mb-6"
+        />
 
         <Button type="submit" variant="primary" disabled={submitting} className="w-full">
           {submitting ? "Logging in…" : "Log in"}

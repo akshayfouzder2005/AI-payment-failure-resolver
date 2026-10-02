@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
+import { ThemeToggle } from "../ui/ThemeToggle";
 import type { HealthResponse } from "../../types/api";
 
 type CheckState = "checking" | "ok" | "down";
@@ -146,6 +147,8 @@ export function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
             <span className="hidden text-sm text-text-muted sm:inline">{user.merchant_name}</span>
           </>
         )}
+
+        <ThemeToggle />
 
         <Link
           to="/app/account"

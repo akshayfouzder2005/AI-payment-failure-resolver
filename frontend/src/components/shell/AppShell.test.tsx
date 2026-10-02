@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "../../context/AuthContext";
+import { ThemeProvider } from "../../context/ThemeContext";
 import { AppShell } from "./AppShell";
 import * as api from "../../lib/api";
 
@@ -14,14 +15,16 @@ vi.mock("../../lib/api", async (importOriginal) => {
 function renderShell() {
   return render(
     <MemoryRouter initialEntries={["/app"]}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/app" element={<AppShell />}>
-            <Route index element={<div>Overview Page</div>} />
-            <Route path="payments" element={<div>Payments Page</div>} />
-          </Route>
-        </Routes>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Routes>
+            <Route path="/app" element={<AppShell />}>
+              <Route index element={<div>Overview Page</div>} />
+              <Route path="payments" element={<div>Payments Page</div>} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>,
   );
 }

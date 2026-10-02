@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../../context/AuthContext";
+import { ThemeProvider } from "../../context/ThemeContext";
 import { TopBar } from "./TopBar";
 import * as api from "../../lib/api";
 import type { HealthResponse } from "../../types/api";
@@ -20,9 +22,11 @@ const HEALTH: HealthResponse = {
 function renderTopBar() {
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <TopBar onOpenNav={() => {}} />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <TopBar onOpenNav={() => {}} />
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>,
   );
 }
@@ -70,5 +74,37 @@ describe("TopBar system status", () => {
     await waitFor(() => expect(screen.getByText("API")).toBeInTheDocument());
     expect(screen.getByText("DB")).toBeInTheDocument();
     expect(screen.queryByText("Operational")).not.toBeInTheDocument();
+  });
+});
+
+describe("TopBar theme toggle", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute("data-theme");
+    vi.mocked(api.getMe).mockRejectedValue(new api.ApiError(401, "no token"));
+    vi.mocked(api.getHealth).mockResolvedValue({
+      status: "ok",
+      environment: "LOCAL",
+      providers: { ai: "mock", recovery_gateway: "mock", notifications: "mock" },
+    });
+    vi.mocked(api.getHealthDb).mockResolvedValue({ status: "ok", database: "ok" });
+  });
+
+  afterEach(() => {
+    vi.mocked(api.getHealth).mockReset();
+    vi.mocked(api.getHealthDb).mockReset();
+    vi.mocked(api.getMe).mockReset();
+    document.documentElement.removeAttribute("data-theme");
+  });
+
+  it("labels itself by the theme it switches to, and flips the document theme on click", async () => {
+    const user = userEvent.setup();
+    renderTopBar();
+
+    const toggle = screen.getByRole("button", { name: "Switch to light theme" });
+    await user.click(toggle);
+
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    expect(screen.getByRole("button", { name: "Switch to dark theme" })).toBeInTheDocument();
   });
 });

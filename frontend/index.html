@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
+    <script>
+      // Sets data-theme before first paint so there's no flash of the
+      // wrong theme while React hydrates. Duplicates lib/theme.ts's key
+      // and default on purpose — this runs before any module loads, so
+      // it can't import that file. Keep the two in sync by hand.
+      (function () {
+        var stored = localStorage.getItem("recoverai_theme");
+        var theme = stored === "light" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

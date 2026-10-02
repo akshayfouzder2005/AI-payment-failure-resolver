@@ -8,12 +8,67 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    @apply border-border;
+  /* --- Theme tokens (RecoverAI Financial Instrumentation design system v2) ---
+     Every value here is three space-separated RGB channels, not a hex
+     string — see tailwind.config.js's withOpacity() for why. Dark is the
+     default (:root) because that's the app's existing, already-shipped
+     look; [data-theme="light"] only ever *overrides* these same variable
+     names, so no component anywhere needs a dark:/light: variant. The
+     current theme is applied by ThemeContext setting data-theme on
+     <html> (see index.html's inline bootstrap script for the
+     no-flash-on-load version of the same logic). */
+  :root {
+    --color-canvas: 11 12 14; /* #0B0C0E */
+    --color-surface: 19 20 23; /* #131417 */
+    --color-surface-raised: 25 27 31; /* #191B1F */
+    --color-border: 38 40 45; /* #26282D */
+    --color-border-strong: 58 61 68; /* #3A3D44 */
+    --color-text: 242 239 233; /* #F2EFE9 */
+    --color-text-muted: 154 150 140; /* #9A968C */
+    --color-text-faint: 101 98 91; /* #65625B */
+    --color-accent: 201 151 63; /* #C9973F */
+    --color-on-accent: 20 17 11; /* #14110B */
+    --color-success: 95 165 121; /* #5FA579 */
+    --color-warning: 201 151 63; /* #C9973F — same hue as accent, by design */
+    --color-danger: 196 84 75; /* #C4544B */
+    --color-info: 110 140 160; /* #6E8CA0 */
+
+    /* Amber Drift — the one proprietary gradient in the system (design
+       system v2 §6). Public-surface decoration only: GradientField is the
+       only consumer, and it is not yet wired into any page this phase —
+       that composition work belongs to the next visual phase. Never used
+       as a token inside the authenticated product. */
+    --gradient-amber-drift-1: #d98c3f;
+    --gradient-amber-drift-2: #c2573d;
+    --gradient-amber-drift-3: #6b4a9e;
+
+    color-scheme: dark;
   }
 
-  html {
-    color-scheme: dark;
+  [data-theme="light"] {
+    --color-canvas: 242 239 234; /* #F2EFEA */
+    --color-surface: 250 248 245; /* #FAF8F5 */
+    --color-surface-raised: 255 255 255; /* #FFFFFF */
+    --color-border: 228 224 217; /* #E4E0D9 */
+    --color-border-strong: 199 192 180; /* #C7C0B4 */
+    --color-text: 30 27 23; /* #1E1B17 */
+    --color-text-muted: 107 102 93; /* #6B665D */
+    --color-text-faint: 143 137 125; /* #8F897D */
+    --color-accent: 138 82 24; /* #8A5218 — darker than dark mode's accent: this
+      value does double duty as both a filled dot/border color and as
+      running text color (nav links, "Register"/"Log in" links), so it has
+      to clear 4.5:1 on a light surface, not just look right as a swatch */
+    --color-on-accent: 255 255 255; /* #FFFFFF */
+    --color-success: 30 122 76; /* #1E7A4C */
+    --color-warning: 138 82 24; /* #8A5218 */
+    --color-danger: 166 56 44; /* #A6382C */
+    --color-info: 58 90 160; /* #3A5AA0 */
+
+    color-scheme: light;
+  }
+
+  * {
+    @apply border-border;
   }
 
   body {
@@ -59,5 +114,35 @@
   }
   .animate-drawer-in {
     animation: drawer-in 200ms ease-out;
+  }
+
+  /* Grid/background system (design system v2 §7). A near-subliminal
+     vertical rule grid for public marketing surfaces only — never used
+     inside the authenticated app, which relies on real borders for
+     structure instead. Not wired into any page yet; ready for the next
+     visual phase. Deliberately faint: `border` at low opacity, a fixed
+     column width, no color of its own. */
+  .bg-grid-faint {
+    background-image: repeating-linear-gradient(
+      to right,
+      rgb(var(--color-border) / 0.4) 0,
+      rgb(var(--color-border) / 0.4) 1px,
+      transparent 1px,
+      transparent 160px
+    );
+  }
+
+  /* Gradient system (design system v2 §6) — "Amber Drift", the one
+     proprietary gradient in the product. Public-surface decoration only
+     (Get Started / auth backgrounds); never a button, card, or text
+     fill, and never used inside the authenticated app. Not wired into
+     any page yet; ready for the next visual phase. */
+  .bg-gradient-amber-drift {
+    background-image: linear-gradient(
+      135deg,
+      var(--gradient-amber-drift-1) 0%,
+      var(--gradient-amber-drift-2) 50%,
+      var(--gradient-amber-drift-3) 100%
+    );
   }
 }
