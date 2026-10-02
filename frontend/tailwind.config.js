@@ -59,6 +59,7 @@ export default {
         mono: ["JetBrains Mono", "ui-monospace", "monospace"],
       },
       fontSize: {
+        hero: ["3rem", { lineHeight: "1.08", letterSpacing: "-0.015em", fontWeight: "600" }],
         display: ["2.75rem", { lineHeight: "1.1", letterSpacing: "-0.01em", fontWeight: "600" }],
         heading: ["1.25rem", { lineHeight: "1.3", fontWeight: "600" }],
         subhead: ["0.9375rem", { lineHeight: "1.4", letterSpacing: "0.01em", fontWeight: "600" }],
