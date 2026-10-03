@@ -58,3 +58,39 @@ export function formatRelativeTime(isoTimestamp: string): string {
 
   return new Date(isoTimestamp).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
+
+/**
+ * A duration in seconds as the two most significant units — "45s", "12m",
+ * "3h 20m", "2d 4h". Used for MetricsSummary.average_recovery_time_seconds,
+ * which is null until at least one payment has actually been recovered; null
+ * renders as an em dash rather than a misleading "0s".
+ */
+export function formatDuration(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return "—";
+
+  const total = Math.round(seconds);
+  if (total < 60) return `${total}s`;
+
+  const minutes = Math.floor(total / 60);
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    const restMinutes = minutes % 60;
+    return restMinutes === 0 ? `${hours}h` : `${hours}h ${restMinutes}m`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const restHours = hours % 24;
+  return restHours === 0 ? `${days}d` : `${days}d ${restHours}h`;
+}
+
+/**
+ * Gateway failure codes arrive as SCREAMING_SNAKE (e.g. CARD_DECLINED).
+ * That's an identifier, not copy — render it as plain sentence case for
+ * people, without inventing any wording the backend didn't send.
+ */
+export function humanizeCode(code: string): string {
+  const spaced = code.replace(/_/g, " ").trim().toLowerCase();
+  return spaced.length === 0 ? "" : spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}

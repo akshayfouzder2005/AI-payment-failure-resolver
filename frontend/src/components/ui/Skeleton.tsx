@@ -5,5 +5,5 @@
  * is announced once, by the page, not per block.
  */
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded bg-surface-raised ${className}`} aria-hidden="true" />;
+  return <div className={`animate-pulse rounded bg-border ${className}`} aria-hidden="true" />;
 }

@@ -42,6 +42,8 @@
     --gradient-amber-drift-2: #c2573d;
     --gradient-amber-drift-3: #6b4a9e;
 
+    --shadow-overlay: 0 2px 8px rgba(0, 0, 0, 0.35);
+
     color-scheme: dark;
   }
 
@@ -63,6 +65,8 @@
     --color-warning: 138 82 24; /* #8A5218 */
     --color-danger: 166 56 44; /* #A6382C */
     --color-info: 58 90 160; /* #3A5AA0 */
+
+    --shadow-overlay: 0 4px 16px rgba(30, 27, 23, 0.1), 0 1px 3px rgba(30, 27, 23, 0.06);
 
     color-scheme: light;
   }

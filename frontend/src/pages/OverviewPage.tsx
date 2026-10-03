@@ -3,19 +3,22 @@ import { useNavigate } from "react-router-dom";
 import * as api from "../lib/api";
 import type { MetricsSummary, PaymentRead } from "../types/api";
 import { RevenuePosition } from "../components/overview/RevenuePosition";
-import { RecoveryPosture } from "../components/overview/RecoveryPosture";
-import { OutcomeDistribution } from "../components/overview/OutcomeDistribution";
+import { RecoveryPerformance } from "../components/overview/RecoveryPerformance";
 import { RecoveryActivity } from "../components/overview/RecoveryActivity";
-import { RecentPayments } from "../components/overview/RecentPayments";
+import { RecentFailedPayments } from "../components/overview/RecentFailedPayments";
+import { DecisionInsights } from "../components/overview/DecisionInsights";
 import { QuickDemoEntry } from "../components/overview/QuickDemoEntry";
+import { DashboardRow } from "../components/overview/DashboardRow";
 import { OverviewSkeleton } from "../components/overview/OverviewSkeleton";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorState } from "../components/ui/ErrorState";
+import { PageHeader } from "../components/ui/PageHeader";
 import { Button } from "../components/ui/Button";
+import { formatRelativeTime } from "../lib/format";
 
-// Recent payments feed both Recovery Activity and Recent Payment Activity
-// below — one fetch, no polling loop added purely to feel "live" (design
-// spec correction-pass delta §2).
+// One page of recent payments feeds Recent Failed Payments, Recovery
+// Activity and the failure-reason breakdown in Decision Insights — one
+// fetch, no polling loop added purely to feel "live".
 const RECENT_PAYMENTS_LIMIT = 25;
 
 type LoadState =
@@ -49,7 +52,7 @@ export function OverviewPage() {
   if (state.status === "loading") {
     return (
       <div>
-        <h1 className="mb-8 text-heading">Overview</h1>
+        <PageHeader title="Overview" />
         <OverviewSkeleton />
       </div>
     );
@@ -58,7 +61,7 @@ export function OverviewPage() {
   if (state.status === "error") {
     return (
       <div>
-        <h1 className="mb-8 text-heading">Overview</h1>
+        <PageHeader title="Overview" />
         <ErrorState message={state.message} onRetry={load} />
       </div>
     );
@@ -69,7 +72,7 @@ export function OverviewPage() {
   if (metrics.payments_analyzed === 0) {
     return (
       <div>
-        <h1 className="mb-8 text-heading">Overview</h1>
+        <PageHeader title="Overview" />
         <EmptyState
           title="Your workspace is ready"
           description="No payments have been recorded yet for this merchant."
@@ -86,24 +89,24 @@ export function OverviewPage() {
 
   return (
     <div>
-      <h1 className="mb-8 text-heading">Overview</h1>
+      <PageHeader
+        title="Overview"
+        description={`Failed-payment recovery across this workspace · Updated ${formatRelativeTime(metrics.generated_at)}`}
+      />
 
-      <div className="space-y-12">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          <div className="lg:col-span-8">
-            <RevenuePosition metrics={metrics} />
-          </div>
-          <div className="lg:col-span-4">
-            <RecoveryPosture metrics={metrics} />
-          </div>
-        </div>
-
-        <div className="space-y-12 border-t border-border pt-12">
-          <OutcomeDistribution metrics={metrics} />
-          <RecoveryActivity payments={payments} />
-          <RecentPayments payments={payments} />
-          <QuickDemoEntry />
-        </div>
+      <div className="space-y-10">
+        <DashboardRow
+          main={<RevenuePosition metrics={metrics} />}
+          rail={<RecoveryPerformance metrics={metrics} />}
+        />
+        <DashboardRow
+          main={<RecentFailedPayments payments={payments} />}
+          rail={<RecoveryActivity payments={payments} />}
+        />
+        <DashboardRow
+          main={<DecisionInsights metrics={metrics} payments={payments} />}
+          rail={<QuickDemoEntry />}
+        />
       </div>
     </div>
   );

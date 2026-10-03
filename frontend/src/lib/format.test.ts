@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { formatCount, formatCurrency, formatPercent, formatRelativeTime } from "./format";
+import { formatCount, formatCurrency, formatDuration, formatPercent, formatRelativeTime, humanizeCode } from "./format";
 
 describe("formatCurrency", () => {
   it("formats a decimal string as Indian Rupees with Indian digit grouping", () => {
@@ -66,5 +66,36 @@ describe("formatRelativeTime", () => {
 
   it("falls back to an em dash for an unparseable timestamp", () => {
     expect(formatRelativeTime("not-a-timestamp")).toBe("—");
+  });
+});
+
+describe("formatDuration", () => {
+  it("renders null (nothing recovered yet) as an em dash, never 0s", () => {
+    expect(formatDuration(null)).toBe("—");
+  });
+
+  it("uses the two most significant units", () => {
+    expect(formatDuration(45)).toBe("45s");
+    expect(formatDuration(12 * 60 + 20)).toBe("12m");
+    expect(formatDuration(3600)).toBe("1h");
+    expect(formatDuration(3 * 3600 + 20 * 60)).toBe("3h 20m");
+    expect(formatDuration(2 * 86400 + 4 * 3600 + 59 * 60)).toBe("2d 4h");
+    expect(formatDuration(2 * 86400)).toBe("2d");
+  });
+
+  it("rejects negative and non-finite values rather than printing nonsense", () => {
+    expect(formatDuration(-5)).toBe("—");
+    expect(formatDuration(Number.NaN)).toBe("—");
+  });
+});
+
+describe("humanizeCode", () => {
+  it("turns a SCREAMING_SNAKE gateway code into sentence case", () => {
+    expect(humanizeCode("CARD_DECLINED")).toBe("Card declined");
+    expect(humanizeCode("BAD_REQUEST_ERROR")).toBe("Bad request error");
+  });
+
+  it("returns an empty string for an empty code", () => {
+    expect(humanizeCode("  ")).toBe("");
   });
 });

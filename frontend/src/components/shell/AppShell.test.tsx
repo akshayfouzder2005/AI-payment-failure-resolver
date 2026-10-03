@@ -71,3 +71,44 @@ describe("AppShell mobile navigation", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
+
+describe("AppShell workspace", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(api.getHealth).mockResolvedValue({
+      status: "ok",
+      environment: "LOCAL",
+      providers: { ai: "mock", recovery_gateway: "mock", notifications: "mock" },
+    });
+    vi.mocked(api.getHealthDb).mockResolvedValue({ status: "ok", database: "ok" });
+  });
+
+  afterEach(() => {
+    vi.mocked(api.getMe).mockReset();
+    vi.mocked(api.getHealth).mockReset();
+    vi.mocked(api.getHealthDb).mockReset();
+    localStorage.clear();
+  });
+
+  it("shows the signed-in merchant as the active workspace in the sidebar", async () => {
+    localStorage.setItem("recoverai_token", "test-token");
+    vi.mocked(api.getMe).mockResolvedValue({
+      user_id: "u1",
+      name: "Priya Menon",
+      email: "priya@acme.test",
+      merchant_id: "m1",
+      merchant_name: "Acme Retail",
+    });
+
+    renderShell();
+
+    expect(await screen.findByText("Acme Retail")).toBeInTheDocument();
+  });
+
+  it("renders the routed page inside the main workspace region", () => {
+    vi.mocked(api.getMe).mockRejectedValue(new api.ApiError(401, "no token"));
+    renderShell();
+
+    expect(within(screen.getByRole("main")).getByText("Overview Page")).toBeInTheDocument();
+  });
+});

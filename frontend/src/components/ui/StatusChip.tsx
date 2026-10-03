@@ -65,7 +65,7 @@ export function StatusChip({ status, className = "" }: { status: string; classNa
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium ${TONE_CLASSES[entry.tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${TONE_CLASSES[entry.tone]} ${className}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${DOT_CLASSES[entry.tone]}`} aria-hidden="true" />
       {entry.label}

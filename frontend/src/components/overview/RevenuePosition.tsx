@@ -1,58 +1,71 @@
 import { ProportionBar } from "../ui/ProportionBar";
-import { formatCurrency, formatPercent } from "../../lib/format";
+import { SectionHeader } from "../ui/SectionHeader";
+import { formatCurrency, formatDuration, formatPercent } from "../../lib/format";
 import type { MetricsSummary } from "../../types/api";
 
 /**
- * Design spec §12-A: Revenue Recovered as the largest numeral beside
- * Revenue at Risk, with Recovery Rate as a smaller supporting figure
- * between them, plus a single proportion bar (recovered vs. at-risk
- * share of total-at-risk-ever). Every figure traces directly to
- * MetricsSummary — nothing computed beyond simple addition of two
- * already-real fields.
+ * The page's primary read: revenue recovered as the single largest numeral,
+ * a proportion bar for recovered vs. still-at-risk value, then a ruled strip
+ * of the supporting figures. Every number traces to MetricsSummary — nothing
+ * is computed here beyond handing two real fields to the bar.
+ *
+ * The bar compares only recovered and at-risk value. Escalated payments are
+ * not in revenue_at_risk (the backend counts only failed + retry_scheduled
+ * as money still collectible), so the caption says so rather than letting
+ * the bar imply it covers every failed rupee.
  */
 export function RevenuePosition({ metrics }: { metrics: MetricsSummary }) {
-  const recovered = Number(metrics.revenue_recovered);
-  const atRisk = Number(metrics.revenue_at_risk);
-
   return (
     <section>
-      <h2 className="text-subhead text-text">Revenue Position</h2>
+      <SectionHeader title="Revenue Position" />
 
-      <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
-        <div>
-          <div className="text-body-small text-text-muted">Revenue recovered</div>
-          <div className="text-display tabular-nums text-success">{formatCurrency(metrics.revenue_recovered)}</div>
+      <div>
+        <div className="flex items-center gap-2 text-body-small text-text-muted">
+          <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
+          Revenue recovered
         </div>
-
-        <div className="pb-2">
-          <div className="text-body-small text-text-muted">Recovery rate</div>
-          <div className="text-heading tabular-nums text-text">{formatPercent(metrics.recovery_rate)}</div>
-        </div>
-
-        <div>
-          <div className="text-body-small text-text-muted">Revenue at risk</div>
-          <div className="text-display tabular-nums text-warning">{formatCurrency(metrics.revenue_at_risk)}</div>
-        </div>
+        <div className="mt-1 text-display tabular-nums text-text">{formatCurrency(metrics.revenue_recovered)}</div>
       </div>
 
-      <div className="mt-6 max-w-xl">
+      <div className="mt-6">
         <ProportionBar
           segments={[
             {
               label: "Recovered",
-              value: recovered,
+              value: Number(metrics.revenue_recovered),
               formattedValue: formatCurrency(metrics.revenue_recovered),
               colorClass: "bg-success",
             },
             {
               label: "At risk",
-              value: atRisk,
+              value: Number(metrics.revenue_at_risk),
               formattedValue: formatCurrency(metrics.revenue_at_risk),
               colorClass: "bg-warning",
             },
           ]}
         />
+        <p className="mt-2 text-body-small text-text-muted">
+          Recovered against value still collectible. Escalated payments are tracked separately.
+        </p>
       </div>
+
+      <dl className="mt-6 grid grid-cols-1 divide-y divide-border border-y border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <Stat label="Revenue at risk" value={formatCurrency(metrics.revenue_at_risk)} dotClass="bg-warning" />
+        <Stat label="Recovery rate" value={formatPercent(metrics.recovery_rate)} />
+        <Stat label="Average recovery time" value={formatDuration(metrics.average_recovery_time_seconds)} />
+      </dl>
     </section>
+  );
+}
+
+function Stat({ label, value, dotClass }: { label: string; value: string; dotClass?: string }) {
+  return (
+    <div className="py-4 sm:px-5 sm:first:pl-0 sm:last:pr-0">
+      <dt className="flex items-center gap-2 text-body-small text-text-muted">
+        {dotClass && <span className={`h-2 w-2 rounded-full ${dotClass}`} aria-hidden="true" />}
+        {label}
+      </dt>
+      <dd className="mt-1 text-heading tabular-nums text-text">{value}</dd>
+    </div>
   );
 }

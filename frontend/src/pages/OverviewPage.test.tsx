@@ -152,7 +152,7 @@ describe("OverviewPage", () => {
     expect(await screen.findByText("Recovery Lab Page")).toBeInTheDocument();
   });
 
-  it("renders real revenue, recovery-rate, and posture figures from the metrics summary", async () => {
+  it("renders real revenue, recovery-rate, and recovery-time figures from the metrics summary", async () => {
     vi.mocked(api.getMetricsSummary).mockResolvedValue(METRICS);
     vi.mocked(api.listPayments).mockResolvedValue(PAYMENTS);
 
@@ -160,31 +160,50 @@ describe("OverviewPage", () => {
     await screen.findByText("Revenue Position");
 
     const revenue = sectionFor("Revenue Position");
-    // Each figure appears twice within this section — once as the large
-    // numeral, once again in the proportion-bar legend beneath it.
+    // Each money figure appears twice within this section — once as a
+    // headline/stat figure, once again in the proportion-bar legend.
     expect(within(revenue).getAllByText("₹3,75,000")).toHaveLength(2); // revenue_recovered
     expect(within(revenue).getAllByText("₹1,25,000")).toHaveLength(2); // revenue_at_risk
     expect(within(revenue).getByText("60%")).toBeInTheDocument(); // recovery_rate
-
-    const posture = sectionFor("Recovery Posture");
-    expect(within(posture).getByText("40")).toBeInTheDocument(); // payments_analyzed
-    expect(within(posture).getByText("24")).toBeInTheDocument(); // recovered_count
-    expect(within(posture).getByText("4")).toBeInTheDocument(); // escalated_count
-    expect(within(posture).getByText("18")).toBeInTheDocument(); // automatically_recovered_count
+    expect(within(revenue).getByText("1h")).toBeInTheDocument(); // average_recovery_time_seconds: 3600
   });
 
-  it("derives the outcome distribution's at-risk count from payments_analyzed minus recovered and escalated", async () => {
+  it("renders a dash, not 0s, for average recovery time before anything has been recovered", async () => {
+    vi.mocked(api.getMetricsSummary).mockResolvedValue({ ...METRICS, average_recovery_time_seconds: null });
+    vi.mocked(api.listPayments).mockResolvedValue(PAYMENTS);
+
+    renderOverview();
+    await screen.findByText("Revenue Position");
+
+    const revenue = sectionFor("Revenue Position");
+    expect(within(revenue).getByText("Average recovery time").parentElement).toHaveTextContent("—");
+  });
+
+  it("renders payments analyzed, automatic recoveries and attempt success in Recovery Performance", async () => {
     vi.mocked(api.getMetricsSummary).mockResolvedValue(METRICS);
     vi.mocked(api.listPayments).mockResolvedValue(PAYMENTS);
 
     renderOverview();
-    await screen.findByText("Outcome Distribution");
-    const outcome = sectionFor("Outcome Distribution");
+    await screen.findByText("Recovery Performance");
+
+    const performance = sectionFor("Recovery Performance");
+    expect(within(performance).getByText("40")).toBeInTheDocument(); // payments_analyzed
+    expect(within(performance).getByText("18")).toBeInTheDocument(); // automatically_recovered_count
+    expect(within(performance).getByText("72%")).toBeInTheDocument(); // recovery_attempt_success_rate
+  });
+
+  it("derives the outcome bar's at-risk count from payments_analyzed minus recovered and escalated", async () => {
+    vi.mocked(api.getMetricsSummary).mockResolvedValue(METRICS);
+    vi.mocked(api.listPayments).mockResolvedValue(PAYMENTS);
+
+    renderOverview();
+    await screen.findByText("Recovery Performance");
+    const performance = sectionFor("Recovery Performance");
 
     // 40 analyzed - 24 recovered - 4 escalated = 12 still at risk.
-    expect(within(outcome).getByText("12")).toBeInTheDocument();
-    expect(within(outcome).getByText("24")).toBeInTheDocument();
-    expect(within(outcome).getByText("4")).toBeInTheDocument();
+    expect(within(performance).getByText("12")).toBeInTheDocument();
+    expect(within(performance).getByText("24")).toBeInTheDocument();
+    expect(within(performance).getByText("4")).toBeInTheDocument();
   });
 
   it("shows Recovery Activity ordered by most-recently-changed, excluding untouched failures", async () => {
@@ -205,14 +224,14 @@ describe("OverviewPage", () => {
     expect(links[2]).toHaveTextContent("₹3,000");
   });
 
-  it("shows Recent Payment Activity in real arrival order (created_at, as returned by the backend)", async () => {
+  it("shows Recent Failed Payments in real arrival order (created_at, as returned by the backend)", async () => {
     vi.mocked(api.getMetricsSummary).mockResolvedValue(METRICS);
     vi.mocked(api.listPayments).mockResolvedValue(PAYMENTS);
 
     renderOverview();
-    await screen.findByText("Recent Payment Activity");
+    await screen.findByText("Recent Failed Payments");
 
-    const table = sectionFor("Recent Payment Activity");
+    const table = sectionFor("Recent Failed Payments");
     const rows = within(table).getAllByRole("row").slice(1); // drop the header row
 
     expect(rows).toHaveLength(4);
@@ -227,7 +246,7 @@ describe("OverviewPage", () => {
     vi.mocked(api.listPayments).mockResolvedValue(PAYMENTS);
 
     renderOverview();
-    await screen.findByText("Recent Payment Activity");
+    await screen.findByText("Recent Failed Payments");
 
     await userEvent.click(screen.getByRole("row", { name: "Open payment pay_2" }));
     expect(await screen.findByText("Payment Detail Page")).toBeInTheDocument();
@@ -242,5 +261,69 @@ describe("OverviewPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Open Recovery Lab" }));
     expect(await screen.findByText("Recovery Lab Page")).toBeInTheDocument();
+  });
+
+  it("shows the gateway's failure message, then the humanized code, then a dash, as the failure reason", async () => {
+    vi.mocked(api.getMetricsSummary).mockResolvedValue(METRICS);
+    vi.mocked(api.listPayments).mockResolvedValue([
+      payment({ id: "p_msg", failure_message: "Issuer declined the card", failure_code: "CARD_DECLINED" }),
+      payment({ id: "p_code", failure_message: null, failure_code: "INSUFFICIENT_FUNDS" }),
+      payment({ id: "p_none", failure_message: null, failure_code: null }),
+    ]);
+
+    renderOverview();
+    await screen.findByText("Recent Failed Payments");
+    const table = sectionFor("Recent Failed Payments");
+
+    const byId = (id: string) => within(table).getByRole("row", { name: `Open payment ${id}` });
+    expect(byId("p_msg")).toHaveTextContent("Issuer declined the card");
+    expect(byId("p_code")).toHaveTextContent("Insufficient funds");
+    expect(byId("p_none")).not.toHaveTextContent("Insufficient funds");
+  });
+
+  it("links Recent Failed Payments to the full Payments list", async () => {
+    vi.mocked(api.getMetricsSummary).mockResolvedValue(METRICS);
+    vi.mocked(api.listPayments).mockResolvedValue(PAYMENTS);
+
+    renderOverview();
+    await screen.findByText("Recent Failed Payments");
+
+    const table = sectionFor("Recent Failed Payments");
+    expect(within(table).getByRole("link", { name: "View all" })).toHaveAttribute("href", "/app/payments");
+  });
+
+  it("shows automation rates from the metrics summary and failure reasons counted from the loaded payments", async () => {
+    vi.mocked(api.getMetricsSummary).mockResolvedValue(METRICS);
+    vi.mocked(api.listPayments).mockResolvedValue([
+      payment({ id: "a", failure_code: "CARD_DECLINED" }),
+      payment({ id: "b", failure_code: "CARD_DECLINED" }),
+      payment({ id: "c", failure_code: "INSUFFICIENT_FUNDS" }),
+    ]);
+
+    renderOverview();
+    await screen.findByText("Decision Insights");
+    const insights = sectionFor("Decision Insights");
+
+    expect(within(insights).getByText("45%")).toBeInTheDocument(); // automatic_recovery_rate
+    expect(within(insights).getByText("10%")).toBeInTheDocument(); // escalation_rate
+    expect(within(insights).getByText("3")).toBeInTheDocument(); // failed_or_blocked_intervention_count
+
+    const reasons = within(insights).getAllByRole("listitem");
+    expect(reasons[0]).toHaveTextContent("Card declined");
+    expect(reasons[0]).toHaveTextContent("2");
+    expect(reasons[1]).toHaveTextContent("Insufficient funds");
+    // The sample size is stated, so a page of payments is never mistaken for all-time.
+    expect(within(insights).getByText("From the latest 3 payments.")).toBeInTheDocument();
+  });
+
+  it("states the data window in the page header from the metrics timestamp", async () => {
+    vi.mocked(api.getMetricsSummary).mockResolvedValue(METRICS);
+    vi.mocked(api.listPayments).mockResolvedValue(PAYMENTS);
+
+    renderOverview();
+    await screen.findByText("Revenue Position");
+
+    expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByText(/Updated/)).toBeInTheDocument();
   });
 });

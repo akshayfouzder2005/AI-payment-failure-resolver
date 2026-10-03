@@ -77,7 +77,7 @@ export function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
   const bothOk = apiState === "ok" && dbState === "ok";
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-canvas px-5 md:px-8">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-surface px-4 sm:px-6 lg:px-10">
       <div className="flex items-center gap-3">
         <button
           onClick={onOpenNav}
@@ -87,7 +87,7 @@ export function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
           <span className="block h-2.5 w-4 border-y border-current" aria-hidden="true" />
         </button>
 
-        <span className="text-sm font-semibold tracking-tight md:hidden">
+        <span className="hidden text-sm font-semibold tracking-tight sm:inline md:hidden">
           Recover<span className="text-accent">AI</span>
         </span>
 
@@ -95,13 +95,14 @@ export function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
           <div className="relative" ref={popoverRef}>
             <button
               onClick={() => setProvidersOpen((open) => !open)}
-              className="focus-ring rounded px-2 py-1 text-label uppercase text-text-muted transition-colors duration-150 hover:text-text"
+              aria-expanded={providersOpen}
+              className="focus-ring rounded border border-border px-2 py-1 text-label uppercase text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text"
             >
               {health.environment}
             </button>
             {providersOpen && (
               <div className="absolute left-0 top-full z-10 mt-2 w-56 rounded-lg border border-border bg-surface-raised p-3 shadow-overlay">
-                <div className="mb-2 text-label uppercase text-text-faint">Providers</div>
+                <div className="mb-2 text-label uppercase text-text-muted">Providers</div>
                 <dl className="space-y-1.5 text-sm">
                   <div className="flex items-center justify-between">
                     <dt className="text-text-muted">Razorpay</dt>
@@ -122,44 +123,41 @@ export function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
         )}
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         {!bothResolved || bothOk ? (
-          <div className="flex items-center gap-1.5 text-body-small text-text-muted">
+          <div className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-body-small text-text-muted">
             <StatusDot state={!bothResolved ? "checking" : "ok"} />
-            {!bothResolved ? "Checking…" : "Operational"}
+            {/* Dot-only below sm so the bar fits a phone; the text stays in
+                the accessibility tree at every width. */}
+            <span className="sr-only sm:not-sr-only">{!bothResolved ? "Checking…" : "Operational"}</span>
           </div>
         ) : (
-          <div className="flex items-center gap-3 text-body-small text-text-muted">
+          <div className="flex items-center gap-3 rounded-full border border-border px-2.5 py-1 text-body-small text-text-muted">
             <span className="flex items-center gap-1.5">
               <StatusDot state={apiState} />
-              API
+              <span className="sr-only sm:not-sr-only">API</span>
             </span>
             <span className="flex items-center gap-1.5">
               <StatusDot state={dbState} />
-              DB
+              <span className="sr-only sm:not-sr-only">DB</span>
             </span>
           </div>
         )}
 
-        {user && (
-          <>
-            <span className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
-            <span className="hidden text-sm text-text-muted sm:inline">{user.merchant_name}</span>
-          </>
-        )}
+        <span className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
 
         <ThemeToggle />
 
         <Link
           to="/app/account"
-          className="focus-ring flex h-7 w-7 items-center justify-center rounded bg-surface-raised text-xs font-medium text-text-muted transition-colors duration-150 hover:text-text"
+          className="focus-ring flex h-7 w-7 items-center justify-center rounded-full border border-border bg-surface-raised text-xs font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text"
           aria-label="Account"
         >
           {initials}
         </Link>
         <button
           onClick={logout}
-          className="focus-ring text-xs text-text-muted transition-colors duration-150 hover:text-text"
+          className="focus-ring shrink-0 whitespace-nowrap text-xs text-text-muted transition-colors duration-150 hover:text-text"
         >
           Log out
         </button>

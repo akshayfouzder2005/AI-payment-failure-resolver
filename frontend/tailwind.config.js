@@ -73,7 +73,10 @@ export default {
         lg: "8px",
       },
       boxShadow: {
-        overlay: "0 2px 8px rgba(0, 0, 0, 0.35)",
+        // Value lives in index.css per theme: a 35%-black shadow reads as
+        // heavy smudge on the light workspace, so light mode gets a softer,
+        // warm-tinted one. Same utility name, so no call site changes.
+        overlay: "var(--shadow-overlay)",
       },
       spacing: {
         18: "4.5rem",

@@ -20,7 +20,7 @@ export function ProportionBar({ segments }: { segments: ProportionSegment[] }) {
 
   return (
     <div>
-      <div className="flex h-2 w-full overflow-hidden rounded-sm bg-surface-raised" role="img" aria-label={buildAriaLabel(segments)}>
+      <div className="flex h-2 w-full overflow-hidden rounded-sm bg-border" role="img" aria-label={buildAriaLabel(segments)}>
         {total > 0 ? (
           segments.map((segment) =>
             segment.value > 0 ? (
@@ -33,7 +33,7 @@ export function ProportionBar({ segments }: { segments: ProportionSegment[] }) {
             ) : null,
           )
         ) : (
-          <div className="w-full bg-surface-raised" aria-hidden="true" />
+          <div className="w-full bg-border" aria-hidden="true" />
         )}
       </div>
 
