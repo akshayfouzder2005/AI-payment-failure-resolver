@@ -1,5 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { formatCount, formatCurrency, formatDuration, formatPercent, formatRelativeTime, humanizeCode } from "./format";
+import {
+  formatCount,
+  formatCurrency,
+  formatCurrencyExact,
+  formatCurrencyParts,
+  formatDateTime,
+  formatDateTimeParts,
+  formatDuration,
+  formatElapsedMs,
+  formatPercent,
+  formatRatioPercent,
+  formatRelativeTime,
+  humanizeCode,
+} from "./format";
 
 describe("formatCurrency", () => {
   it("formats a decimal string as Indian Rupees with Indian digit grouping", () => {
@@ -97,5 +110,68 @@ describe("humanizeCode", () => {
 
   it("returns an empty string for an empty code", () => {
     expect(humanizeCode("  ")).toBe("");
+  });
+});
+
+describe("humanizeCode (acronyms)", () => {
+  it("keeps AI upper-case in audit action names", () => {
+    expect(humanizeCode("ai_decision_created")).toBe("AI decision created");
+    expect(humanizeCode("ai_analysis_started")).toBe("AI analysis started");
+  });
+});
+
+describe("formatCurrencyParts / formatCurrencyExact", () => {
+  it("splits whole rupees from paise with Indian grouping, never dropping paise", () => {
+    expect(formatCurrencyParts("124500.5")).toEqual({ main: "₹1,24,500", fraction: ".50" });
+    expect(formatCurrencyParts("5400")).toEqual({ main: "₹5,400", fraction: ".00" });
+    expect(formatCurrencyExact("12999.00")).toBe("₹12,999.00");
+  });
+
+  it("falls back to an em dash for a non-numeric amount", () => {
+    expect(formatCurrencyParts("abc")).toEqual({ main: "—", fraction: "" });
+  });
+});
+
+describe("formatDateTime / formatDateTimeParts", () => {
+  const iso = new Date(2026, 9, 3, 14, 32, 9).toISOString(); // local 14:32:09
+
+  it("is 24-hour with seconds by default", () => {
+    expect(formatDateTime(iso)).toMatch(/3 Oct 2026.*14:32:09/);
+  });
+
+  it("can drop the seconds", () => {
+    expect(formatDateTime(iso, { seconds: false })).toMatch(/14:32$/);
+  });
+
+  it("splits date and time for a two-line cell", () => {
+    const parts = formatDateTimeParts(iso);
+    expect(parts.date).toMatch(/3 Oct 2026/);
+    expect(parts.time).toBe("14:32:09");
+  });
+
+  it("returns an em dash for an invalid timestamp", () => {
+    expect(formatDateTime("nope")).toBe("—");
+  });
+});
+
+describe("formatElapsedMs", () => {
+  it("uses ms, one-decimal seconds, then minutes", () => {
+    expect(formatElapsedMs(420)).toBe("420ms");
+    expect(formatElapsedMs(2100)).toBe("2.1s");
+    expect(formatElapsedMs(184_000)).toBe("3m");
+    expect(formatElapsedMs(-1)).toBe("—");
+  });
+});
+
+describe("formatRatioPercent", () => {
+  it("renders a 0–1 decimal string with at most one decimal", () => {
+    expect(formatRatioPercent("0.725")).toBe("72.5%");
+    expect(formatRatioPercent("0.850")).toBe("85%");
+    expect(formatRatioPercent(0)).toBe("0%");
+  });
+
+  it("renders null / garbage as an em dash, not 0%", () => {
+    expect(formatRatioPercent(null)).toBe("—");
+    expect(formatRatioPercent("x")).toBe("—");
   });
 });

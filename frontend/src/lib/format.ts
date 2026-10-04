@@ -91,6 +91,110 @@ export function formatDuration(seconds: number | null): string {
  * people, without inventing any wording the backend didn't send.
  */
 export function humanizeCode(code: string): string {
-  const spaced = code.replace(/_/g, " ").trim().toLowerCase();
+  const spaced = code.replace(/_/g, " ").trim().toLowerCase().replace(/\bai\b/g, "AI");
   return spaced.length === 0 ? "" : spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/**
+ * An amount split for typographic hierarchy: the whole-rupee figure carries
+ * the weight, the paise render quieter. `main` is the integer part with
+ * symbol and Indian grouping ("₹5,400"); `fraction` is ".00" (always two
+ * digits — a payments screen must never silently drop paise). Falls back to
+ * an em dash for a non-numeric amount.
+ */
+export function formatCurrencyParts(
+  amount: string | number,
+  currency = "INR",
+): { main: string; fraction: string } {
+  const value = typeof amount === "string" ? Number(amount) : amount;
+  if (!Number.isFinite(value)) return { main: "—", fraction: "" };
+
+  const parts = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).formatToParts(value);
+
+  const fractionIndex = parts.findIndex((part) => part.type === "decimal");
+  if (fractionIndex === -1) {
+    return { main: parts.map((part) => part.value).join(""), fraction: "" };
+  }
+  return {
+    main: parts
+      .slice(0, fractionIndex)
+      .map((part) => part.value)
+      .join(""),
+    fraction: parts
+      .slice(fractionIndex)
+      .map((part) => part.value)
+      .join(""),
+  };
+}
+
+/** Full amount with paise — "₹5,400.00" — for places that need one string. */
+export function formatCurrencyExact(amount: string | number, currency = "INR"): string {
+  const { main, fraction } = formatCurrencyParts(amount, currency);
+  return `${main}${fraction}`;
+}
+
+/**
+ * Absolute, unambiguous local timestamp for forensic surfaces (tables of
+ * record, audit trail): "3 Oct 2026, 14:32:09". 24-hour on purpose — no
+ * am/pm to misread when reconstructing a sequence of events. Pass
+ * `seconds: false` for a compact "3 Oct 2026, 14:32".
+ */
+export function formatDateTime(isoTimestamp: string, options: { seconds?: boolean } = {}): string {
+  const { seconds = true } = options;
+  const date = new Date(isoTimestamp);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(seconds ? { second: "2-digit" } : {}),
+    hourCycle: "h23",
+  }).format(date);
+}
+
+/** Date and time as two strings, for a two-line table cell. */
+export function formatDateTimeParts(isoTimestamp: string): { date: string; time: string } {
+  const date = new Date(isoTimestamp);
+  if (Number.isNaN(date.getTime())) return { date: "—", time: "" };
+  return {
+    date: new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(date),
+    time: new Intl.DateTimeFormat("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).format(date),
+  };
+}
+
+/**
+ * Elapsed time between two real timestamps, for the gaps in the Decision
+ * Chain and Audit trail: "420ms", "2.1s", "3m 4s". The sub-second range
+ * matters here — the live pipeline runs in well under a second per step.
+ */
+export function formatElapsedMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  return formatDuration(ms / 1000);
+}
+
+/**
+ * A 0–1 decimal (the backend serializes confidence / probability as a
+ * Decimal string like "0.725") as a percentage with at most one decimal:
+ * "72.5%", "85%". null/undefined/non-numeric render as an em dash.
+ */
+export function formatRatioPercent(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  const ratio = typeof value === "string" ? Number(value) : value;
+  if (!Number.isFinite(ratio)) return "—";
+  const percent = Math.round(ratio * 1000) / 10;
+  return `${percent}%`;
 }
