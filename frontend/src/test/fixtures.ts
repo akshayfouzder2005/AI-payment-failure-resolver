@@ -78,3 +78,38 @@ export function makeAudit(overrides: Partial<AuditLogRead> = {}): AuditLogRead {
     ...overrides,
   };
 }
+
+export function makeMetrics(overrides: Partial<import("../types/api").MetricsSummary> = {}): import("../types/api").MetricsSummary {
+  return {
+    merchant_id: "m1",
+    payments_analyzed: 10,
+    revenue_at_risk: "5000.00",
+    revenue_recovered: "2000.00",
+    recovered_count: 4,
+    escalated_count: 1,
+    automatically_recovered_count: 3,
+    recovery_rate: 0.4,
+    automatic_recovery_rate: 0.3,
+    escalation_rate: 0.1,
+    recovery_attempt_success_rate: 0.5,
+    average_recovery_time_seconds: 120,
+    failed_or_blocked_intervention_count: 1,
+    generated_at: "2026-10-03T09:00:00Z",
+    ...overrides,
+  };
+}
+
+export function makeIngest(
+  overrides: Partial<import("../types/api").WebhookIngestResult> = {},
+): import("../types/api").WebhookIngestResult {
+  return {
+    status: "processed",
+    payment_event_id: "eeeeeeee-0000-0000-0000-000000000001",
+    payment_id: PAYMENT_ID,
+    merchant_id: "m1",
+    payment_status: "failed",
+    payment_summary: null,
+    detail: null,
+    ...overrides,
+  };
+}

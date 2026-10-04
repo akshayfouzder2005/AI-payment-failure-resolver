@@ -206,7 +206,7 @@ function PaymentDetail({ paymentId }: { paymentId: string }) {
         )}
 
         {audit.ok ? (
-          <AuditTimeline entries={audit.data} />
+          <AuditTimeline entries={audit.data} paymentId={payment.id} />
         ) : (
           <DetailSection id="audit" title="Audit trail">
             <ErrorState message={`Could not load the audit trail: ${audit.message}`} onRetry={() => void load(false)} />

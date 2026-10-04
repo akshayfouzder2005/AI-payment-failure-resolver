@@ -16,6 +16,10 @@ import type {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+/** The API origin this build talks to — shown in Settings and used to derive the webhook URL. */
+// oxlint-disable-next-line react/only-export-components
+export const API_BASE_URL: string = BASE_URL;
+
 export class ApiError extends Error {
   status: number;
 

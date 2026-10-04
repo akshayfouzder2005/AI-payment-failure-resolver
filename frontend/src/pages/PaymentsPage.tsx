@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import * as api from "../lib/api";
-import { DEFAULT_PAGE_SIZE, PAGE_SIZES } from "../lib/pagination";
+import { PAGE_SIZES } from "../lib/pagination";
+import { getDefaultPageSize } from "../lib/preferences";
 import { PAYMENT_STATUSES, statusEntry, type PaymentStatus } from "../lib/status";
 import type { PaymentRead } from "../types/api";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -34,8 +35,10 @@ export function PaymentsPage() {
   const status: PaymentStatus | null = (PAYMENT_STATUSES as readonly string[]).includes(rawStatus ?? "")
     ? (rawStatus as PaymentStatus)
     : null;
+  // The user's saved default (Settings) applies unless the URL names a size.
+  const defaultSize = getDefaultPageSize();
   const rawSize = Number(searchParams.get("size"));
-  const size = (PAGE_SIZES as readonly number[]).includes(rawSize) ? rawSize : DEFAULT_PAGE_SIZE;
+  const size = (PAGE_SIZES as readonly number[]).includes(rawSize) ? rawSize : defaultSize;
   const rawPage = Number(searchParams.get("page"));
   const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
 
@@ -70,14 +73,14 @@ export function PaymentsPage() {
         else params.delete("status");
       }
       if (next.size !== undefined) {
-        if (next.size === DEFAULT_PAGE_SIZE) params.delete("size");
+        if (next.size === defaultSize) params.delete("size");
         else params.set("size", String(next.size));
       }
       if (next.page !== undefined && next.page > 1) params.set("page", String(next.page));
       else params.delete("page");
       setSearchParams(params);
     },
-    [searchParams, setSearchParams],
+    [searchParams, setSearchParams, defaultSize],
   );
 
   const loading = settled?.key !== key;

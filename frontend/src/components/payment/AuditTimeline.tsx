@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { formatDateTime, formatElapsedMs, humanizeCode } from "../../lib/format";
 import { auditExtras, auditMessage, elapsedBetween } from "../../lib/investigation";
 import { DetailSection } from "./DetailSection";
@@ -9,14 +10,24 @@ import type { AuditLogRead } from "../../types/api";
  * (ai_engine dashed/info, policy_engine inverted/solid) so who did what
  * reads the same way here as above.
  */
-export function AuditTimeline({ entries }: { entries: AuditLogRead[] }) {
+export function AuditTimeline({ entries, paymentId }: { entries: AuditLogRead[]; paymentId?: string }) {
   return (
     <DetailSection
       id="audit"
       title="Audit trail"
       aside={
-        <span className="tabular-nums">
-          {entries.length} {entries.length === 1 ? "event" : "events"}
+        <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="tabular-nums">
+            {entries.length} {entries.length === 1 ? "event" : "events"}
+          </span>
+          {paymentId && (
+            <Link
+              to={`/app/audit?payment=${paymentId}`}
+              className="focus-ring rounded font-medium text-accent underline decoration-border-strong underline-offset-4 hover:decoration-accent"
+            >
+              Open full trace
+            </Link>
+          )}
         </span>
       }
     >

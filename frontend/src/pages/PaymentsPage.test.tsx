@@ -32,7 +32,10 @@ function renderPage(initial = "/app/payments") {
 const many = (n: number) =>
   Array.from({ length: n }, (_, i) => makePayment({ id: `id-${i}`, gateway_payment_id: `pay_${i}` }));
 
-beforeEach(() => vi.mocked(api.listPayments).mockReset());
+beforeEach(() => {
+  localStorage.clear();
+  vi.mocked(api.listPayments).mockReset();
+});
 afterEach(() => vi.clearAllMocks());
 
 describe("PaymentsPage", () => {
@@ -76,6 +79,19 @@ describe("PaymentsPage", () => {
     await screen.findAllByText("pay_0");
 
     expect(api.listPayments).toHaveBeenCalledWith({ status: "recovered", limit: 51, offset: 50 });
+  });
+
+  it("uses the default rows-per-page saved in Settings, unless the URL names a size", async () => {
+    localStorage.setItem("recoverai_default_page_size", "50");
+    vi.mocked(api.listPayments).mockResolvedValue(many(2));
+    const { unmount } = renderPage();
+    await screen.findAllByText("pay_0");
+    expect(api.listPayments).toHaveBeenLastCalledWith({ limit: 51, offset: 0 });
+    unmount();
+
+    renderPage("/app/payments?size=100");
+    await screen.findAllByText("pay_0");
+    expect(api.listPayments).toHaveBeenLastCalledWith({ limit: 101, offset: 0 });
   });
 
   it("ignores junk query params instead of sending them to the API", async () => {
