@@ -1,4 +1,5 @@
 import { AMOUNT_PRESETS, FAILURE_TYPES, buildRequest, type FormErrors, type ScenarioForm } from "../../lib/simulation";
+import { notificationMode } from "../../lib/recipient";
 import { Button } from "../ui/Button";
 import type { HealthResponse } from "../../types/api";
 
@@ -27,6 +28,7 @@ export function ScenarioBuilder({
   const set = <K extends keyof ScenarioForm>(key: K, value: ScenarioForm[K]) => onChange({ ...form, [key]: value });
   const preview = buildRequest(form, merchantId);
   const live = livePrefixes(health);
+  const mode = notificationMode(health);
 
   return (
     <section aria-labelledby="builder-title">
@@ -120,10 +122,18 @@ export function ScenarioBuilder({
           <div className="sm:col-span-2 xl:col-span-1 2xl:col-span-2">
             <TextInput
               id="lab-email"
-              label="Customer email"
+              label={mode.live ? "Customer email (notification recipient)" : "Customer email"}
               value={form.customerEmail}
               error={errors.customerEmail}
               onChange={(v) => set("customerEmail", v)}
+              placeholder={mode.live ? "you@yourdomain.com" : undefined}
+              hint={
+                mode.live
+                  ? `When the pipeline chooses “send notification”, ${mode.provider ? mode.provider.charAt(0).toUpperCase() + mode.provider.slice(1) : "the provider"} emails this address for real. Use a mailbox you control.`
+                  : health
+                    ? "Notifications are mocked on this backend — nothing is delivered to this address."
+                    : undefined
+              }
             />
           </div>
         </div>
@@ -157,12 +167,16 @@ function TextInput({
   label,
   value,
   error,
+  hint,
+  placeholder,
   onChange,
 }: {
   id: string;
   label: string;
   value: string;
   error?: string;
+  hint?: string;
+  placeholder?: string;
   onChange: (value: string) => void;
 }) {
   return (
@@ -174,10 +188,16 @@ function TextInput({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
         aria-invalid={!!error}
-        aria-describedby={error ? `${id}-error` : undefined}
+        aria-describedby={[error ? `${id}-error` : null, hint ? `${id}-hint` : null].filter(Boolean).join(" ") || undefined}
         className={inputClass(!!error) + " w-full"}
       />
+      {hint && !error && (
+        <p id={`${id}-hint`} className="mt-1.5 text-body-small text-text-muted">
+          {hint}
+        </p>
+      )}
       {error && (
         <p id={`${id}-error`} role="alert" className="mt-1.5 text-body-small text-danger">
           {error}

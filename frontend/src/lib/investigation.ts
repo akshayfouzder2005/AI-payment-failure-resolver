@@ -24,6 +24,7 @@ import type {
   AuditLogRead,
   PaymentRead,
   RecoveryAttemptRead,
+  RecoveryExecutionResult,
 } from "../types/api";
 
 // --- runs --------------------------------------------------------------
@@ -466,4 +467,35 @@ export function elapsedBetween(from: string | null, to: string | null): number |
   if (!from || !to) return null;
   const diff = new Date(to).getTime() - new Date(from).getTime();
   return Number.isFinite(diff) && diff >= 0 ? diff : null;
+}
+
+// --- manual re-run -----------------------------------------------------
+
+/**
+ * Plain-language summary of what POST /recovery/execute/{id} actually did.
+ * `idempotent_replay` is the backend saying it executed NOTHING new: the
+ * decision already had a successful attempt, which it returned as-is (so a
+ * customer is never emailed twice for the same decision).
+ */
+export function describeRerun(result: RecoveryExecutionResult): { replay: boolean; message: string } {
+  const attempt = result.recovery_attempt;
+  if (result.idempotent_replay) {
+    return {
+      replay: true,
+      message: `Nothing was sent again. This AI decision already has a successful attempt (#${attempt.attempt_number}); the backend returned it unchanged.`,
+    };
+  }
+
+  const verdict = statusEntry(result.policy_decision).label.toLowerCase();
+  const status = statusEntry(attempt.status).label.toLowerCase();
+  const outcome = attempt.error_message ?? attempt.result_message;
+  return {
+    replay: false,
+    message: `Policy ${verdict} → ${humanizeCode(attempt.action_type).toLowerCase()} · ${status}.${outcome ? ` ${outcome}` : ""}`,
+  };
+}
+
+/** Where a customer-facing notification for this payment would go — the contact on file. */
+export function customerContact(payment: PaymentRead): { email: string | null; phone: string | null } {
+  return { email: payment.customer?.email ?? null, phone: payment.customer?.phone ?? null };
 }

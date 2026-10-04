@@ -13,7 +13,8 @@ import { KindBadge } from "../ui/KindBadge";
 import { StatusChip } from "../ui/StatusChip";
 import { DetailSection } from "./DetailSection";
 import { StepEmpty } from "./StepEmpty";
-import type { RecoveryAttemptRead } from "../../types/api";
+import { RerunRecovery } from "./RerunRecovery";
+import type { PaymentRead, RecoveryAttemptRead } from "../../types/api";
 
 /**
  * What the system actually did, and what came back. The result block is
@@ -26,10 +27,15 @@ export function RecoveryPanel({
   run,
   node,
   stopMessage,
+  customer,
+  onRerun,
 }: {
   run: Run | null;
   node: ChainNode;
   stopMessage: string | null;
+  customer: PaymentRead["customer"];
+  /** present only when a manual re-run makes sense (a decision exists, nothing is mid-flight) */
+  onRerun?: () => Promise<{ message: string; replay: boolean }>;
 }) {
   const attempt = run?.attempt ?? null;
 
@@ -72,14 +78,15 @@ export function RecoveryPanel({
             </Field>
           </dl>
 
-          <ActionResult attempt={attempt} />
+          <ActionResult attempt={attempt} customer={customer} />
+          {onRerun && <RerunRecovery recipient={customer?.email ?? customer?.phone ?? null} onRun={onRerun} />}
         </div>
       )}
     </DetailSection>
   );
 }
 
-function ActionResult({ attempt }: { attempt: RecoveryAttemptRead }) {
+function ActionResult({ attempt, customer }: { attempt: RecoveryAttemptRead; customer: PaymentRead["customer"] }) {
   const link = extractPaymentLink(attempt);
   const notification = describeNotification(attempt);
   const isLinkAction = (LINK_ACTIONS as readonly string[]).includes(attempt.action_type);
@@ -119,10 +126,11 @@ function ActionResult({ attempt }: { attempt: RecoveryAttemptRead }) {
       )}
 
       {notification && (
-        <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-3">
-          <Field label="Sent to">{notification.audience}</Field>
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="Audience">{notification.audience}</Field>
           <Field label="Channel">{notification.channel ?? "—"}</Field>
           <Field label="Provider">{notification.vendor ?? "—"}</Field>
+          <Field label="Recipient">{recipientFor(notification, customer)}</Field>
         </dl>
       )}
 
@@ -163,4 +171,21 @@ function ActionResult({ attempt }: { attempt: RecoveryAttemptRead }) {
       )}
     </div>
   );
+}
+
+/**
+ * The address the notification went to. For customers it is the contact on
+ * the payment's customer record (what the executor reads); a merchant
+ * escalation goes to a server-configured address the API doesn't expose, so
+ * it says that rather than guessing one.
+ */
+function recipientFor(notification: NonNullable<ReturnType<typeof describeNotification>>, customer: PaymentRead["customer"]) {
+  if (notification.audience === "Merchant") return <span className="text-text-muted">Merchant address (server config)</span>;
+  const value =
+    notification.channel === "SMS"
+      ? customer?.phone
+      : notification.channel === "Email"
+        ? customer?.email
+        : (customer?.email ?? customer?.phone);
+  return value ? <span className="break-all font-mono text-[13px]">{value}</span> : <span className="text-text-muted">None on file</span>;
 }

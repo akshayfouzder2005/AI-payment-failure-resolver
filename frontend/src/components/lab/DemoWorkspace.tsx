@@ -34,12 +34,20 @@ export function DemoWorkspace({
   items,
   running,
   disabled,
+  recipient,
+  recipientError,
+  notificationsLive,
+  onRecipientChange,
   onRun,
   onStop,
 }: {
   items: DemoItem[] | null;
   running: boolean;
   disabled: boolean;
+  recipient: string;
+  recipientError: string | null;
+  notificationsLive: boolean;
+  onRecipientChange: (value: string) => void;
   onRun: () => void;
   onStop: () => void;
 }) {
@@ -65,10 +73,35 @@ export function DemoWorkspace({
             Stop
           </Button>
         ) : (
-          <Button variant="primary" onClick={onRun} disabled={disabled}>
+          <Button variant="primary" onClick={onRun} disabled={disabled || !!recipientError}>
             {items && settled > 0 ? "Run again" : "Load demo workspace"}
           </Button>
         )}
+      </div>
+
+      <div className="mt-4">
+        <label htmlFor="demo-recipient" className="mb-1.5 block text-label uppercase text-text-muted">
+          Send demo emails to {notificationsLive ? "" : "(optional)"}
+        </label>
+        <input
+          id="demo-recipient"
+          type="email"
+          value={recipient}
+          disabled={running}
+          onChange={(event) => onRecipientChange(event.target.value)}
+          placeholder="you@yourdomain.com"
+          aria-invalid={!!recipientError}
+          aria-describedby="demo-recipient-hint"
+          className={`focus-ring w-full rounded border bg-surface-raised px-3 py-2 text-sm text-text transition-colors duration-150 placeholder:text-text-faint disabled:opacity-60 ${
+            recipientError ? "border-danger" : "border-border hover:border-border-strong"
+          }`}
+        />
+        <p id="demo-recipient-hint" className={`mt-1.5 text-body-small ${recipientError ? "text-danger" : "text-text-muted"}`} role={recipientError ? "alert" : undefined}>
+          {recipientError ??
+            (notificationsLive
+              ? "Scenarios whose pipeline sends a customer email use plus-addressed variants of this address (you+tag@…), so they land in your mailbox on Gmail, Outlook and most providers."
+              : "Notifications are mocked here, so nothing is delivered. Leave blank to use safe @example.com addresses.")}
+        </p>
       </div>
 
       {items && (

@@ -4,6 +4,7 @@ import {
   buildRuns,
   deriveChain,
   describeNotification,
+  describeRerun,
   elapsedBetween,
   extractPaymentLink,
   extractViolatedRules,
@@ -317,5 +318,40 @@ describe("elapsedBetween", () => {
     expect(elapsedBetween("2026-10-03T09:00:00.000Z", "2026-10-03T09:00:01.250Z")).toBe(1250);
     expect(elapsedBetween(null, "2026-10-03T09:00:01Z")).toBeNull();
     expect(elapsedBetween("2026-10-03T09:00:05Z", "2026-10-03T09:00:01Z")).toBeNull();
+  });
+});
+
+describe("describeRerun", () => {
+  const result = (over: Record<string, unknown> = {}, attempt: Partial<ReturnType<typeof makeAttempt>> = {}) => ({
+    payment_id: "p",
+    ai_decision_id: "d",
+    policy_decision: "APPROVE",
+    policy_reason: "ok",
+    violated_rules: [],
+    recovery_attempt: makeAttempt(attempt),
+    idempotent_replay: false,
+    ...over,
+  });
+
+  it("says nothing was sent again for an idempotent replay", () => {
+    const r = describeRerun(result({ idempotent_replay: true }, { attempt_number: 2 }) as never);
+    expect(r.replay).toBe(true);
+    expect(r.message).toMatch(/Nothing was sent again/);
+    expect(r.message).toMatch(/#2/);
+  });
+
+  it("summarises a fresh execution with policy verdict, action, status and the provider's own text", () => {
+    const r = describeRerun(
+      result({}, { action_type: "SEND_NOTIFICATION", result_message: "Email sent to a@b.co via Brevo." }) as never,
+    );
+    expect(r.replay).toBe(false);
+    expect(r.message).toBe("Policy approved → send notification · success. Email sent to a@b.co via Brevo.");
+  });
+
+  it("prefers the error text for a failed attempt", () => {
+    const r = describeRerun(
+      result({ policy_decision: "MODIFY" }, { status: "failed", error_message: "Brevo returned 400", result_message: null }) as never,
+    );
+    expect(r.message).toBe("Policy modified → retry payment · failed. Brevo returned 400");
   });
 });

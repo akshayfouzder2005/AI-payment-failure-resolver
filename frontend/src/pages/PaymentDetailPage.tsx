@@ -4,6 +4,7 @@ import * as api from "../lib/api";
 import {
   buildRuns,
   deriveChain,
+  describeRerun,
   extractViolatedRules,
   isPipelineInFlight,
   pipelineStopMessage,
@@ -165,6 +166,19 @@ function PaymentDetail({ paymentId }: { paymentId: string }) {
   const runsError = !decisions.ok ? decisions.message : !attempts.ok ? attempts.message : null;
   const violatedRules = selectedRun?.attempt ? extractViolatedRules(auditData, selectedRun.attempt.id) : null;
 
+  // A manual re-run is offered when this run has a diagnosis and nothing is
+  // mid-flight (an executing or pending attempt, or a live pipeline).
+  const attemptBusy = selectedRun?.attempt?.status === "pending" || selectedRun?.attempt?.status === "in_progress";
+  const rerunDecisionId = selectedRun?.decision?.id ?? null;
+  const rerun =
+    rerunDecisionId && !attemptBusy && !inFlight
+      ? async () => {
+          const result = await api.executeRecovery(payment.id, rerunDecisionId);
+          await load(true);
+          return describeRerun(result);
+        }
+      : undefined;
+
   return (
     <div>
       <PaymentHeader payment={payment} refreshing={refreshing} onRefresh={() => void load(false)} />
@@ -201,7 +215,13 @@ function PaymentDetail({ paymentId }: { paymentId: string }) {
               violatedRules={violatedRules}
               stopMessage={stopMessage}
             />
-            <RecoveryPanel run={selectedRun} node={nodeByKey.execution} stopMessage={stopMessage} />
+            <RecoveryPanel
+              run={selectedRun}
+              node={nodeByKey.execution}
+              stopMessage={stopMessage}
+              customer={payment.customer}
+              onRerun={rerun}
+            />
           </>
         )}
 

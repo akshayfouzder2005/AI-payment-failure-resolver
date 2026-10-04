@@ -318,3 +318,163 @@ describe("RecoveryLabPage — demo workspace", () => {
     expect(screen.getByRole("button", { name: /Load demo workspace|Run again/ })).toBeEnabled();
   });
 });
+
+const LIVE_HEALTH = {
+  status: "ok",
+  environment: "PROD",
+  providers: { ai: "groq", recovery_gateway: "razorpay", notifications: "brevo" },
+};
+const MY_CUSTOMER = { id: "c1", name: "Ananya Rao", email: "me@gmail.com", phone: "+919800000001" };
+
+describe("RecoveryLabPage — customer notification recipient", () => {
+  it("with live notifications, refuses to send to an address that can't receive mail", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue(LIVE_HEALTH);
+    renderLab();
+    await screen.findByRole("note"); // health loaded
+    await userEvent.click(screen.getByRole("button", { name: "Run simulation" })); // default form uses @example.com
+
+    expect(await screen.findByText(/example\.com can't receive real mail/)).toBeInTheDocument();
+    expect(api.simulateFailedPayment).not.toHaveBeenCalled();
+  });
+
+  it("with live notifications, requires an email at all", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue(LIVE_HEALTH);
+    renderLab();
+    await screen.findByRole("note");
+    await userEvent.clear(screen.getByLabelText(/Customer email/));
+    await userEvent.click(screen.getByRole("button", { name: "Run simulation" }));
+
+    expect(await screen.findByText(/Enter the email address/)).toBeInTheDocument();
+    expect(api.simulateFailedPayment).not.toHaveBeenCalled();
+  });
+
+  it("with live notifications, sends the real address once it is valid, and says who will email it", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue(LIVE_HEALTH);
+    vi.mocked(api.simulateFailedPayment).mockResolvedValue(makeIngest({ payment_id: "pay-1" }));
+    stubSettled("pay-1", { action: "SEND_PAYMENT_LINK" });
+    renderLab();
+    await screen.findByRole("note");
+    expect(screen.getByText(/Brevo emails this address for real/)).toBeInTheDocument();
+
+    const email = screen.getByLabelText(/Customer email/);
+    await userEvent.clear(email);
+    await userEvent.type(email, "me@gmail.com");
+    await userEvent.click(screen.getByRole("button", { name: "Run simulation" }));
+
+    await waitFor(() => expect(api.simulateFailedPayment).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.simulateFailedPayment).mock.calls[0][0]!.customer_email).toBe("me@gmail.com");
+  });
+
+  it("with mocked notifications, says nothing is delivered and still accepts any well-formed address", async () => {
+    vi.mocked(api.simulateFailedPayment).mockResolvedValue(makeIngest({ payment_id: "pay-1" }));
+    stubSettled("pay-1");
+    renderLab();
+    expect(await screen.findByText(/Notifications are mocked on this backend/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Run simulation" }));
+    await waitFor(() => expect(api.simulateFailedPayment).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("RecoveryLabPage — customer notification outcome", () => {
+  async function runWith(attemptOverrides: Record<string, unknown>) {
+    vi.mocked(api.simulateFailedPayment).mockResolvedValue(makeIngest({ payment_id: "pay-1" }));
+    vi.mocked(api.getPayment).mockResolvedValue(makePayment({ id: "pay-1", customer: MY_CUSTOMER }));
+    vi.mocked(api.listAIDecisions).mockResolvedValue([makeDecision({ payment_id: "pay-1" })]);
+    vi.mocked(api.listRecoveryAttempts).mockResolvedValue([makeAttempt({ payment_id: "pay-1", ...attemptOverrides })]);
+    vi.mocked(api.getPaymentAuditTimeline).mockResolvedValue([makeAudit()]);
+    renderLab();
+    await userEvent.click(screen.getByRole("button", { name: "Run simulation" }));
+    return screen.findByRole("region", { name: "Customer notification" });
+  }
+
+  it("shows the address the email went to, the vendor, the message ID — and does not claim inbox delivery", async () => {
+    const card = await runWith({
+      action_type: "SEND_NOTIFICATION",
+      result_message: "Email sent to me@gmail.com via Brevo.",
+      external_reference: "<202610040900.7@smtp-relay.brevo.com>",
+    });
+
+    await waitFor(() => expect(card).toHaveAttribute("data-notification", "sent"));
+    expect(within(card).getByText("Accepted by Brevo")).toBeInTheDocument();
+    expect(within(card).getByText("me@gmail.com")).toBeInTheDocument();
+    expect(within(card).getByText("Brevo message ID")).toBeInTheDocument();
+    expect(within(card).getByText("<202610040900.7@smtp-relay.brevo.com>")).toBeInTheDocument();
+    expect(within(card).getByText("Email sent to me@gmail.com via Brevo.")).toBeInTheDocument();
+    expect(within(card).getByText(/Delivery to the inbox isn't confirmed/)).toBeInTheDocument();
+    expect(within(card).queryByText(/Delivered/)).not.toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Copy recipient" })).toBeInTheDocument();
+  });
+
+  it("says plainly that no customer email was sent when the pipeline chose a payment link", async () => {
+    const card = await runWith({ action_type: "SEND_PAYMENT_LINK" });
+    await waitFor(() => expect(card).toHaveAttribute("data-notification", "not-applicable"));
+    expect(within(card).getByText("No customer email")).toBeInTheDocument();
+    expect(card).toHaveTextContent("“send payment link”, which doesn't email the customer");
+  });
+
+  it("says an escalation emailed the merchant, not the customer", async () => {
+    const card = await runWith({ action_type: "ESCALATE_TO_MERCHANT", result_message: "Email sent to ops@x.co via Brevo." });
+    await waitFor(() => expect(card).toHaveAttribute("data-notification", "not-applicable"));
+    expect(card).toHaveTextContent("email went to the merchant, not the customer");
+  });
+
+  it("shows the provider's error and the intended recipient when the notification failed", async () => {
+    const card = await runWith({
+      action_type: "SEND_NOTIFICATION",
+      status: "failed",
+      result_message: null,
+      external_reference: null,
+      error_message: "Brevo returned 400 sending email: sender not verified",
+    });
+    await waitFor(() => expect(card).toHaveAttribute("data-notification", "failed"));
+    expect(within(card).getByRole("alert")).toHaveTextContent("Brevo returned 400 sending email: sender not verified");
+    expect(within(card).getByText("me@gmail.com")).toBeInTheDocument();
+  });
+});
+
+describe("RecoveryLabPage — demo recipient", () => {
+  function stubDemo() {
+    let n = 0;
+    vi.mocked(api.simulateFailedPayment).mockImplementation(async () => makeIngest({ payment_id: `pay-${++n}` }));
+    vi.mocked(api.getPayment).mockImplementation(async (id: string) => makePayment({ id }));
+    vi.mocked(api.listAIDecisions).mockResolvedValue([makeDecision()]);
+    vi.mocked(api.listRecoveryAttempts).mockResolvedValue([makeAttempt()]);
+    vi.mocked(api.getPaymentAuditTimeline).mockResolvedValue([]);
+  }
+
+  it("blocks the demo while live notifications are on and the recipient can't receive mail", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue(LIVE_HEALTH);
+    renderLab();
+    await screen.findByRole("note");
+    await userEvent.type(screen.getByLabelText(/Send demo emails to/), "someone@example.com");
+
+    expect(screen.getByText(/example\.com can't receive real mail/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load demo workspace" })).toBeDisabled();
+  });
+
+  it("plus-addresses the user's mailbox per customer, keeping repeat customers on one address", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue(LIVE_HEALTH);
+    stubDemo();
+    renderLab();
+    await screen.findByRole("note");
+    await userEvent.type(screen.getByLabelText(/Send demo emails to/), "me@gmail.com");
+    await userEvent.click(screen.getByRole("button", { name: "Load demo workspace" }));
+    await waitFor(() => expect(screen.getByText("9 of 9 settled")).toBeInTheDocument(), { timeout: 5000 });
+
+    const emails = vi.mocked(api.simulateFailedPayment).mock.calls.map(([req]) => req!.customer_email!);
+    expect(emails.every((e) => /^me\+[a-z0-9]+-[a-z0-9]+@gmail\.com$/.test(e))).toBe(true);
+    expect(emails[6]).toBe(emails[7]);
+    expect(emails[7]).toBe(emails[8]);
+    expect(new Set(emails).size).toBe(7); // 6 distinct single-failure customers + 1 repeat customer
+  });
+
+  it("uses safe example.com addresses when no recipient is given", async () => {
+    stubDemo();
+    renderLab();
+    await userEvent.click(screen.getByRole("button", { name: "Load demo workspace" }));
+    await waitFor(() => expect(screen.getByText("9 of 9 settled")).toBeInTheDocument(), { timeout: 5000 });
+    const emails = vi.mocked(api.simulateFailedPayment).mock.calls.map(([req]) => req!.customer_email!);
+    expect(emails.every((e) => e.endsWith("@example.com"))).toBe(true);
+  });
+});

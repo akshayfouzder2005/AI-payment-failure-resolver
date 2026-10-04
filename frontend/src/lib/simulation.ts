@@ -13,6 +13,7 @@
  * answer can vary.
  */
 import type { SimulateFailedPaymentRequest } from "../types/api";
+import { validateRecipientEmail } from "./recipient";
 
 export interface FailureType {
   id: string;
@@ -54,7 +55,7 @@ export const FAILURE_TYPES: FailureType[] = [
   {
     id: "unknown",
     label: "Unclassified failure",
-    hint: "No clear signal",
+    hint: "Usually a customer email",
     failure_code: "BAD_REQUEST_ERROR",
     failure_message: "The payment could not be completed",
   },
@@ -87,7 +88,7 @@ export const AMOUNT_PRESETS = [
 export type FormErrors = Partial<Record<"amount" | "customerEmail" | "customerPhone", string>>;
 
 /** Client-side checks only for things the API would otherwise accept and mangle; the backend stays authoritative. */
-export function validateForm(form: ScenarioForm): FormErrors {
+export function validateForm(form: ScenarioForm, options: { deliverableEmail?: boolean } = {}): FormErrors {
   const errors: FormErrors = {};
 
   const amount = form.amount.trim();
@@ -97,10 +98,10 @@ export function validateForm(form: ScenarioForm): FormErrors {
     errors.amount = "Amount is above the ₹1,00,00,000 simulator limit.";
   }
 
-  const email = form.customerEmail.trim();
-  if (email !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errors.customerEmail = "That doesn't look like an email address.";
-  }
+  // With live notifications the address must be able to receive mail (and
+  // must be given); with mocked ones only its syntax matters. See lib/recipient.ts.
+  const emailError = validateRecipientEmail(form.customerEmail, { deliverable: options.deliverableEmail ?? false });
+  if (emailError) errors.customerEmail = emailError;
 
   const phone = form.customerPhone.trim();
   if (phone !== "" && !/^\+?[0-9 ()-]{7,16}$/.test(phone)) {
@@ -177,13 +178,14 @@ export function buildDemoRequest(
   scenario: DemoScenario,
   merchantId: string | null,
   runId: string,
+  recipientEmail: string | null = null,
 ): SimulateFailedPaymentRequest {
   return buildRequest(
     {
       failureTypeId: scenario.failureTypeId,
       amount: scenario.amount,
       customerName: scenario.customerName,
-      customerEmail: `${scenario.emailLocal}+${runId}@example.com`,
+      customerEmail: demoEmailFor(scenario, runId, recipientEmail),
       customerPhone: scenario.phone,
     },
     merchantId,
@@ -192,4 +194,28 @@ export function buildDemoRequest(
 
 export function newRunId(now: number = Date.now()): string {
   return now.toString(36).slice(-6);
+}
+
+/**
+ * The customer email for one demo scenario.
+ *
+ * Without a recipient: `<name>+<run>@example.com` — safe, and never delivers.
+ * With a recipient the demo's customer emails are plus-addressed variants of
+ * it (`you+imrankhan-k3f9a2@gmail.com`), so any customer notification the
+ * pipeline sends really lands in that one mailbox on providers that support
+ * plus-addressing (Gmail, Outlook, Fastmail, iCloud…). The tag is derived from
+ * the scenario's customer, so the three repeat-customer payments still share
+ * one address and their failures still accumulate; the run id keeps separate
+ * runs on fresh customers.
+ */
+export function demoEmailFor(scenario: DemoScenario, runId: string, recipientEmail: string | null): string {
+  const recipient = recipientEmail?.trim();
+  if (!recipient) return `${scenario.emailLocal}+${runId}@example.com`;
+
+  const at = recipient.lastIndexOf("@");
+  // Strip any plus-tag the user already typed so tags never stack.
+  const local = recipient.slice(0, at).split("+")[0];
+  const domain = recipient.slice(at + 1);
+  const tag = `${scenario.emailLocal.replace(/[^a-z0-9]/gi, "")}-${runId}`;
+  return `${local}+${tag}@${domain}`;
 }

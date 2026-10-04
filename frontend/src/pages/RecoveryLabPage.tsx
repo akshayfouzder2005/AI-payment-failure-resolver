@@ -14,6 +14,8 @@ import {
   type ScenarioForm,
 } from "../lib/simulation";
 import { deriveTrace, summarizeOutcome } from "../lib/trace";
+import { deriveNotification } from "../lib/notification";
+import { notificationMode, validateRecipientEmail } from "../lib/recipient";
 import { formatElapsedMs } from "../lib/format";
 import type { HealthResponse, MetricsSummary, PaymentRead, WebhookIngestResult } from "../types/api";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -22,6 +24,7 @@ import { DemoWorkspace, type DemoItem } from "../components/lab/DemoWorkspace";
 import { TraceWaterfall } from "../components/lab/TraceWaterfall";
 import { EventStream } from "../components/lab/EventStream";
 import { ImpactPanel } from "../components/lab/ImpactPanel";
+import { CustomerNotification } from "../components/lab/CustomerNotification";
 
 type Phase = "idle" | "simulating" | "tracking" | "finished" | "timed-out" | "error";
 
@@ -50,6 +53,7 @@ export function RecoveryLabPage({ pollIntervalMs = DEFAULT_POLL_INTERVAL_MS }: {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
 
+  const [demoRecipient, setDemoRecipient] = useState("");
   const [demo, setDemo] = useState<DemoItem[] | null>(null);
   const [demoRunning, setDemoRunning] = useState(false);
 
@@ -79,6 +83,11 @@ export function RecoveryLabPage({ pollIntervalMs = DEFAULT_POLL_INTERVAL_MS }: {
     };
   }, []);
 
+  const mode = notificationMode(health);
+  // Real delivery on → the address must be able to receive mail. Blank demo
+  // recipient is fine either way (it falls back to safe @example.com).
+  const demoRecipientError =
+    demoRecipient.trim() === "" ? null : validateRecipientEmail(demoRecipient, { deliverable: mode.live });
   const busy = phase === "simulating" || phase === "tracking" || demoRunning;
   const live = phase === "simulating" || phase === "tracking";
 
@@ -152,7 +161,7 @@ export function RecoveryLabPage({ pollIntervalMs = DEFAULT_POLL_INTERVAL_MS }: {
   );
 
   async function runSingle() {
-    const nextErrors = validateForm(form);
+    const nextErrors = validateForm(form, { deliverableEmail: mode.live });
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -199,7 +208,7 @@ export function RecoveryLabPage({ pollIntervalMs = DEFAULT_POLL_INTERVAL_MS }: {
       if (signal.aborted) break;
       update(i, { status: "simulating" });
       try {
-        const request = buildDemoRequest(items[i].scenario, merchantId, runId);
+        const request = buildDemoRequest(items[i].scenario, merchantId, runId, demoRecipient.trim() || null);
         // runOne drives the main trace, so the viewer watches each scenario flow through live.
         const pending = runOne(request, signal);
         // Mirror the phase into the row: the ingest result carries the payment id as soon as it exists.
@@ -258,7 +267,17 @@ export function RecoveryLabPage({ pollIntervalMs = DEFAULT_POLL_INTERVAL_MS }: {
             onChange={setForm}
             onSubmit={() => void runSingle()}
           />
-          <DemoWorkspace items={demo} running={demoRunning} disabled={busy} onRun={() => void runDemo()} onStop={stopDemo} />
+          <DemoWorkspace
+            items={demo}
+            running={demoRunning}
+            disabled={busy}
+            recipient={demoRecipient}
+            recipientError={demoRecipientError}
+            notificationsLive={mode.live}
+            onRecipientChange={setDemoRecipient}
+            onRun={() => void runDemo()}
+            onStop={stopDemo}
+          />
         </div>
 
         <div className="min-w-0 space-y-8 border-border xl:col-span-7 xl:border-l xl:pl-10">
@@ -306,6 +325,8 @@ export function RecoveryLabPage({ pollIntervalMs = DEFAULT_POLL_INTERVAL_MS }: {
               </div>
             )}
           </section>
+
+          <CustomerNotification state={deriveNotification(snapshot)} />
 
           <section aria-labelledby="stream-title">
             <h2 id="stream-title" className="mb-3 text-subhead text-text">

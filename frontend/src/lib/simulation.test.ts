@@ -5,6 +5,7 @@ import {
   FAILURE_TYPES,
   buildDemoRequest,
   buildRequest,
+  demoEmailFor,
   newRunId,
   validateForm,
 } from "./simulation";
@@ -20,6 +21,12 @@ describe("validateForm", () => {
 
   it("rejects an absurdly large amount", () => {
     expect(validateForm({ ...DEFAULT_FORM, amount: "99999999" }).amount).toMatch(/limit/);
+  });
+
+  it("with live notifications, requires a deliverable email and rejects reserved domains", () => {
+    expect(validateForm({ ...DEFAULT_FORM, customerEmail: "" }, { deliverableEmail: true }).customerEmail).toMatch(/Enter the email/);
+    expect(validateForm(DEFAULT_FORM, { deliverableEmail: true }).customerEmail).toMatch(/example\.com can't receive/);
+    expect(validateForm({ ...DEFAULT_FORM, customerEmail: "me@gmail.com" }, { deliverableEmail: true })).toEqual({});
   });
 
   it("allows a blank email and phone (the backend supplies defaults) but not malformed ones", () => {
@@ -100,5 +107,37 @@ describe("newRunId", () => {
     expect(newRunId(1_700_000_000_000)).toBe(newRunId(1_700_000_000_000));
     expect(newRunId(1)).not.toBe(newRunId(999_999_999));
     expect(newRunId().length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("demoEmailFor", () => {
+  const imran = DEMO_SCENARIOS.find((s) => s.id === "d7")!;
+  const imran2 = DEMO_SCENARIOS.find((s) => s.id === "d9")!;
+  const ananya = DEMO_SCENARIOS.find((s) => s.id === "d1")!;
+
+  it("without a recipient keeps the safe example.com address", () => {
+    expect(demoEmailFor(imran, "r1", null)).toBe("imran.khan+r1@example.com");
+    expect(demoEmailFor(imran, "r1", "  ")).toBe("imran.khan+r1@example.com");
+  });
+
+  it("plus-addresses the user's own mailbox so notifications really land there", () => {
+    expect(demoEmailFor(ananya, "r1", "me@gmail.com")).toBe("me+ananyarao-r1@gmail.com");
+  });
+
+  it("gives the repeat-customer scenarios one shared address, and other customers different ones", () => {
+    expect(demoEmailFor(imran, "r1", "me@gmail.com")).toBe(demoEmailFor(imran2, "r1", "me@gmail.com"));
+    expect(demoEmailFor(imran, "r1", "me@gmail.com")).not.toBe(demoEmailFor(ananya, "r1", "me@gmail.com"));
+  });
+
+  it("changes with the run so separate runs start from fresh customers", () => {
+    expect(demoEmailFor(imran, "r1", "me@gmail.com")).not.toBe(demoEmailFor(imran, "r2", "me@gmail.com"));
+  });
+
+  it("never stacks plus-tags if the user typed one", () => {
+    expect(demoEmailFor(ananya, "r1", "me+already@gmail.com")).toBe("me+ananyarao-r1@gmail.com");
+  });
+
+  it("is threaded through buildDemoRequest", () => {
+    expect(buildDemoRequest(ananya, "m1", "r1", "me@gmail.com").customer_email).toBe("me+ananyarao-r1@gmail.com");
   });
 });

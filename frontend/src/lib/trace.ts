@@ -158,7 +158,7 @@ export function deriveTrace(ingest: WebhookIngestResult | null, snapshot: Pipeli
       phase: "done",
       tone: status.tone,
       stateLabel: status.label,
-      headline: `Payment is ${status.label.toLowerCase()}`,
+      headline: `Status: ${status.label}`,
       detail: stopped ? "The pipeline stopped before completing — see the audit trail." : null,
       bar: bar(ms(payment.updated_at), ms(payment.updated_at)),
     };

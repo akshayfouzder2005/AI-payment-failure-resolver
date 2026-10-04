@@ -21,6 +21,7 @@ vi.mock("../lib/api", async (importOriginal) => {
     listAIDecisions: vi.fn(),
     listRecoveryAttempts: vi.fn(),
     getPaymentAuditTimeline: vi.fn(),
+    executeRecovery: vi.fn(),
   };
 });
 
@@ -54,6 +55,7 @@ beforeEach(() => {
   vi.mocked(api.listAIDecisions).mockReset();
   vi.mocked(api.listRecoveryAttempts).mockReset();
   vi.mocked(api.getPaymentAuditTimeline).mockReset();
+  vi.mocked(api.executeRecovery).mockReset();
 });
 afterEach(() => vi.clearAllMocks());
 
@@ -399,5 +401,132 @@ describe("PaymentDetailPage — refresh", () => {
     expect(api.listAIDecisions).toHaveBeenCalledTimes(before + 1);
     expect(api.listRecoveryAttempts).toHaveBeenCalledTimes(before + 1);
     expect(api.getPaymentAuditTimeline).toHaveBeenCalledTimes(before + 1);
+  });
+});
+
+describe("PaymentDetailPage — notification recipient", () => {
+  it("shows the customer's email on file as the recipient of an email notification", async () => {
+    mockAll({
+      decisions: [makeDecision({ recommended_action: "SEND_NOTIFICATION" })],
+      attempts: [makeAttempt({ action_type: "SEND_NOTIFICATION", result_message: "Email sent to ananya@example.com via Brevo.", external_reference: "<id@brevo>" })],
+    });
+    renderDetail();
+    const recovery = await screen.findByRole("region", { name: "Recovery" });
+    expect(within(recovery).getByText("Recipient")).toBeInTheDocument();
+    expect(within(recovery).getAllByText("ananya@example.com").length).toBeGreaterThan(0);
+    expect(within(recovery).queryByText("+919800000001")).not.toBeInTheDocument();
+  });
+
+  it("shows the phone number for an SMS", async () => {
+    mockAll({
+      attempts: [makeAttempt({ action_type: "SEND_NOTIFICATION", result_message: "SMS sent to +919800000001 via Twilio.", external_reference: "SM1" })],
+    });
+    renderDetail();
+    const recovery = await screen.findByRole("region", { name: "Recovery" });
+    expect(within(recovery).getByText("+919800000001")).toBeInTheDocument();
+  });
+
+  it("does not invent a merchant address for an escalation", async () => {
+    mockAll({
+      attempts: [makeAttempt({ action_type: "ESCALATE_TO_MERCHANT", policy_decision: "ESCALATE", result_message: "Email sent to ops@x.co via Brevo." })],
+    });
+    renderDetail();
+    const recovery = await screen.findByRole("region", { name: "Recovery" });
+    expect(within(recovery).getByText("Merchant address (server config)")).toBeInTheDocument();
+    expect(within(recovery).queryByText("ops@x.co")).not.toBeInTheDocument();
+  });
+});
+
+describe("PaymentDetailPage — re-run recovery", () => {
+  const executionResult = (over: Record<string, unknown> = {}, attempt: Record<string, unknown> = {}) => ({
+    payment_id: PAYMENT_ID,
+    ai_decision_id: "dddddddd-0000-0000-0000-000000000001",
+    policy_decision: "APPROVE",
+    policy_reason: "ok",
+    violated_rules: [],
+    recovery_attempt: makeAttempt(attempt),
+    idempotent_replay: false,
+    ...over,
+  });
+
+  it("asks first, names the address the email would go to, and does nothing on Cancel", async () => {
+    mockAll({});
+    renderDetail();
+    const recovery = await screen.findByRole("region", { name: "Recovery" });
+    await userEvent.click(within(recovery).getByRole("button", { name: "Re-run recovery" }));
+
+    const dialog = within(recovery).getByRole("alertdialog", { name: "Confirm re-run recovery" });
+    expect(dialog).toHaveTextContent("the email goes to ananya@example.com");
+    expect(dialog).toHaveTextContent("returns it without repeating it");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(api.executeRecovery).not.toHaveBeenCalled();
+    expect(within(recovery).queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("re-runs for exactly this AI decision, reports the result, and refreshes the page data", async () => {
+    mockAll({});
+    vi.mocked(api.executeRecovery).mockResolvedValue(
+      executionResult({}, { action_type: "SEND_NOTIFICATION", attempt_number: 2, result_message: "Email sent to ananya@example.com via Brevo." }) as never,
+    );
+    renderDetail();
+    const recovery = await screen.findByRole("region", { name: "Recovery" });
+    const readsBefore = vi.mocked(api.getPayment).mock.calls.length;
+
+    await userEvent.click(within(recovery).getByRole("button", { name: "Re-run recovery" }));
+    await userEvent.click(within(within(recovery).getByRole("alertdialog")).getByRole("button", { name: "Re-run recovery" }));
+
+    await waitFor(() => expect(api.executeRecovery).toHaveBeenCalledWith(PAYMENT_ID, "dddddddd-0000-0000-0000-000000000001"));
+    expect(await within(recovery).findByText(/Policy approved → send notification · success\. Email sent to ananya@example\.com via Brevo\./)).toBeInTheDocument();
+    expect(vi.mocked(api.getPayment).mock.calls.length).toBeGreaterThan(readsBefore);
+  });
+
+  it("says nothing was sent again when the backend replays an earlier successful attempt", async () => {
+    mockAll({});
+    vi.mocked(api.executeRecovery).mockResolvedValue(executionResult({ idempotent_replay: true }, { attempt_number: 1 }) as never);
+    renderDetail();
+    const recovery = await screen.findByRole("region", { name: "Recovery" });
+
+    await userEvent.click(within(recovery).getByRole("button", { name: "Re-run recovery" }));
+    await userEvent.click(within(within(recovery).getByRole("alertdialog")).getByRole("button", { name: "Re-run recovery" }));
+
+    expect(await within(recovery).findByText(/Nothing was sent again/)).toBeInTheDocument();
+  });
+
+  it("shows the backend's own error (e.g. 409 nothing to act on)", async () => {
+    mockAll({});
+    vi.mocked(api.executeRecovery).mockRejectedValue(new api.ApiError(409, "No AI decision exists for this payment yet"));
+    renderDetail();
+    const recovery = await screen.findByRole("region", { name: "Recovery" });
+
+    await userEvent.click(within(recovery).getByRole("button", { name: "Re-run recovery" }));
+    await userEvent.click(within(within(recovery).getByRole("alertdialog")).getByRole("button", { name: "Re-run recovery" }));
+
+    expect(await within(recovery).findByRole("alert")).toHaveTextContent("No AI decision exists for this payment yet");
+  });
+
+  it("warns that a customer with no contact on file can't be notified", async () => {
+    vi.mocked(api.getPayment).mockResolvedValue(makePayment({ customer: null }));
+    vi.mocked(api.listAIDecisions).mockResolvedValue([makeDecision()]);
+    vi.mocked(api.listRecoveryAttempts).mockResolvedValue([makeAttempt()]);
+    vi.mocked(api.getPaymentAuditTimeline).mockResolvedValue([makeAudit()]);
+    renderDetail();
+    const recovery = await screen.findByRole("region", { name: "Recovery" });
+    await userEvent.click(within(recovery).getByRole("button", { name: "Re-run recovery" }));
+    expect(within(recovery).getByRole("alertdialog")).toHaveTextContent("no customer email or phone on file");
+  });
+
+  it("is not offered while an attempt is still executing", async () => {
+    mockAll({ attempts: [makeAttempt({ status: "in_progress", completed_at: null })] });
+    renderDetail();
+    const recovery = await screen.findByRole("region", { name: "Recovery" });
+    expect(within(recovery).queryByRole("button", { name: "Re-run recovery" })).not.toBeInTheDocument();
+  });
+
+  it("is not offered when there is no AI decision to re-run", async () => {
+    mockAll({ decisions: [], attempts: [] });
+    renderDetail();
+    await screen.findByRole("region", { name: "Recovery" });
+    expect(screen.queryByRole("button", { name: "Re-run recovery" })).not.toBeInTheDocument();
   });
 });
